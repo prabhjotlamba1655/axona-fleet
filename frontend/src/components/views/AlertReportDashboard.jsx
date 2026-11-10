@@ -352,7 +352,7 @@ const RAW_INCIDENTS = [
     time: '09:05 AM',
     location: 'Hosur-Krishnagiri Expressway km 58',
     metric: '76 km/h (Limit: 60 km/h)',
-    details: 'Downhill descent speed violation. In-cab buzzer alerted driver to engage retarder brake.',
+    details: 'Overspeeding Alert! Your vehicle is travelling at 76 km/h against the permitted limit of 60 km/h. Please maintain speed limits and ensure safe driving.',
     impact_inr: 0,
     status: 'RESOLVED'
   },
@@ -1732,6 +1732,14 @@ export default function AlertReportDashboard({ onReturnHome }) {
                         })()
                       : inc.alert_type === 'HARSH_BRAKING'
                       ? `Harsh braking detected! Your vehicle number ${vehicleReg} has experienced sudden deceleration. Please check driver safety & ensure safe driving practices.`
+                      : inc.alert_type === 'OVERSPEEDING'
+                      ? (() => {
+                          const speedMatch = (inc.metric || '').match(/(\d+)\s*km\/h/i);
+                          const limitMatch = (inc.metric || '').match(/Limit:\s*(\d+)\s*km\/h/i);
+                          const curSpeed = speedMatch ? speedMatch[1] : '76';
+                          const speedLimit = limitMatch ? limitMatch[1] : '60';
+                          return `Overspeeding Alert! Your vehicle is travelling at ${curSpeed} km/h against the permitted limit of ${speedLimit} km/h. Please maintain speed limits and ensure safe driving.`;
+                        })()
                       : inc.details
                     }
                   </p>
