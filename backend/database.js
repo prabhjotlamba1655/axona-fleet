@@ -1032,7 +1032,7 @@ function seedDataIfEmpty() {
         type: 'REFUEL_SUCCESS',
         severity: 'LOW',
         title: 'Refuelling Completed Alert',
-        message: 'Refuelling detected! Your vehicle has added 220 litres of fuel at IOCL Mega Point Vijayawada, at 06:30 AM.',
+        message: 'Refuelling detected! Your vehicle number AP-16-TX-5509 has added 220 litres of fuel at IOCL Mega Point Vijayawada, at 06:30 AM.',
         metric_value: '+220.0 Liters Sensor Rise',
         location: 'IOCL Highway Station Vijayawada',
         timestamp: '06:30 AM',
