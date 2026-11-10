@@ -2658,13 +2658,13 @@ export default function ExecutiveNocDashboard({
 
           value: isCurrencyOnly ? `${todayVal.toFixed ? todayVal.toFixed(1) : todayVal} ${unit}` : `₹${tInr.toLocaleString()}`,
 
-          sub: isCurrencyOnly ? `${subType}` : `${todayVal.toFixed ? todayVal.toFixed(1) : todayVal} ${unit} ${subType}`,
+          sub: isCurrencyOnly ? `${subType}` : `${todayVal.toFixed ? todayVal.toFixed(1) : todayVal} ${unit}${subType ? ` ${subType}` : ''}`,
 
           subQty: isCurrencyOnly ? null : (todayVal.toFixed ? todayVal.toFixed(1) : todayVal),
 
           subUnit: isCurrencyOnly ? null : unit,
 
-          subDesc: isCurrencyOnly ? null : subType,
+          subDesc: (isCurrencyOnly || !subType) ? null : subType,
 
           vehicleCount: todayVehicles
 
@@ -3703,7 +3703,7 @@ export default function ExecutiveNocDashboard({
 
             unit: 'L',
 
-            subType: 'Mismatch Diff'
+            subType: ''
 
           }),
 
@@ -4329,7 +4329,7 @@ export default function ExecutiveNocDashboard({
 
             unit: 'L',
 
-            subType: 'Excess CPH Cost'
+            subType: ''
 
           }),
 
@@ -4527,7 +4527,7 @@ export default function ExecutiveNocDashboard({
 
             unit: 'L',
 
-            subType: 'Deviation Burn'
+            subType: ''
 
           }),
 
@@ -5013,7 +5013,7 @@ export default function ExecutiveNocDashboard({
 
             metricTitle: 'Refuelling Done',
 
-            subType: 'Dispensed Fuel Spend'
+            subType: ''
 
           }),
 
@@ -7587,11 +7587,7 @@ export default function ExecutiveNocDashboard({
 
             )},
 
-            { header: 'Mileage', key: 'mileage', render: (v) => (
-
-              <span className="font-mono text-emerald-300 text-xs whitespace-nowrap">{v.mileage} km/L</span>
-
-            )},
+            
 
             { header: 'Fuel Cost Today', key: 'fuelCost', render: (v) => (
 
