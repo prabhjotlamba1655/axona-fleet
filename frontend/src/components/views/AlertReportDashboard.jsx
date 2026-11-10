@@ -555,7 +555,7 @@ const RAW_INCIDENTS = [
     time: '03:10 AM',
     location: 'Samruddhi Mahamarg Service Lane',
     metric: 'Moving at 32 km/h (Ignition OFF)',
-    details: 'GPS displacement detected at 32 km/h with zero ignition wire feed and zero CANBus RPM. Asset in motion while powered down.',
+    details: 'Towing Alert! Unauthorised vehicle movement detected while the ignition is OFF. Please verify the vehicle\'s location and check for possible towing or unauthorised movement.',
     impact_inr: 0,
     status: 'ACKNOWLEDGED'
   },
@@ -1748,6 +1748,8 @@ export default function AlertReportDashboard({ onReturnHome }) {
                         })()
                       : inc.alert_type === 'GEOFENCE_PARKING'
                       ? `Night Parking Breach detected! Your vehicle number ${vehicleReg} is parked outside the approved parking zone during designated night hours. Please take necessary action to ensure vehicle safety.`
+                      : (inc.alert_type === 'TOWING' || inc.alert_type === 'TOWING_ALERT')
+                      ? `Towing Alert! Unauthorised vehicle movement detected while the ignition is OFF. Please verify the vehicle's location and check for possible towing or unauthorised movement.`
                       : inc.details
                     }
                   </p>
