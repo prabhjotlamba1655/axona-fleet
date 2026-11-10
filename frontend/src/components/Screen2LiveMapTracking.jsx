@@ -8,6 +8,7 @@ import {
   Gauge, Zap, Timer, Save, Edit3, Crosshair, Minus, Globe
 } from 'lucide-react';
 import { fetchAlerts, acknowledgeAlert, fetchVehicles } from '../services/api';
+import { formatStandardizedAlertMessage } from '../utils/alertMessageFormatter';
 import { FREE_MAP_PROVIDERS, getMapProvider, getStoredMapboxToken } from '../services/mapProviders';
 import { generateTruckMarkerHtml } from './TruckMapMarker';
 import MapboxModal from './MapboxModal';
@@ -1815,7 +1816,7 @@ export default function Screen2LiveMapTracking({ isExpanded = false, onToggleExp
                       <span className="text-slate-400">{alert.timestamp}</span>
                     </div>
                     <div className="font-bold text-white mt-1">{alert.reg_no}</div>
-                    <p className="text-[11px] text-slate-300 leading-tight mt-0.5">{alert.message}</p>
+                    <p className="text-[11px] text-slate-300 leading-tight mt-0.5">{formatStandardizedAlertMessage(alert)}</p>
                     <div className="mt-2">
                       {isAck ? (
                         <div className="text-[10px] text-emerald-400 font-bold flex items-center space-x-1">

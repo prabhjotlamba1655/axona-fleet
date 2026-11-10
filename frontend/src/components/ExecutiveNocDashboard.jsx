@@ -43,6 +43,7 @@ import {
 } from '../services/api';
 
 import { FREE_MAP_PROVIDERS } from '../services/mapProviders';
+import { formatStandardizedAlertMessage } from '../utils/alertMessageFormatter';
 
 import { 
 
@@ -10911,7 +10912,7 @@ export default function ExecutiveNocDashboard({
 
                     <p className={`text-[11px] ${isLight ? 'text-slate-600' : 'text-slate-300'} leading-tight mt-0.5`}>
 
-                      {alert.message}
+                      {formatStandardizedAlertMessage(alert)}
 
                     </p>
 

@@ -7,6 +7,7 @@ import {
   ArrowLeft, Home, BellRing, Phone, User, MapPin, Check
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { formatStandardizedAlertMessage } from '../../utils/alertMessageFormatter';
 
 // Standard Report Timeframe Options (as per HDD software reference)
 const DURATION_TIMEFRAMES = [
@@ -1007,57 +1008,7 @@ export default function AlertReportDashboard({ onReturnHome }) {
 
   // Format incident log details for export & email reports
   const getIncidentExportMessage = (inc, vehicleReg) => {
-    if (inc.alert_type === 'FUEL_SIPHONING') {
-      const dropMatch = (inc.metric || inc.details).match(/([\d.]+)\s*L/i);
-      const dropL = dropMatch ? dropMatch[1] : '28.5';
-      const costMatch = (inc.metric || inc.details).match(/₹([\d,]+)/);
-      const costVal = costMatch ? costMatch[1] : (parseFloat(dropL) * 94).toFixed(0);
-      return `Fuel Siphoning Loss Detected! Your vehicle number ${vehicleReg} experienced a sudden drop of ${dropL} litres (approx. ₹${costVal}) while stationary. Please verify fuel levels and inspect for potential fuel theft or leakage.`;
-    }
-    if (inc.alert_type === 'REFUEL_DONE') {
-      const volMatch = (inc.metric || '').match(/\+?([\d.]+)\s*L/i);
-      const vol = volMatch ? volMatch[1] : '380';
-      return `Refuelling detected! Your vehicle number ${vehicleReg} has added ${vol} litres of fuel at ${inc.location || 'Fuel Station'}, at ${inc.time || '08:30 AM'}.`;
-    }
-    if (inc.alert_type === 'HARSH_BRAKING') {
-      return `Harsh braking detected! Your vehicle number ${vehicleReg} has experienced sudden deceleration. Please check driver safety & ensure safe driving practices.`;
-    }
-    if (inc.alert_type === 'OVERSPEEDING') {
-      const speedMatch = (inc.metric || '').match(/(\d+)\s*km\/h/i);
-      const limitMatch = (inc.metric || '').match(/Limit:\s*(\d+)\s*km\/h/i);
-      const curSpeed = speedMatch ? speedMatch[1] : '76';
-      const speedLimit = limitMatch ? limitMatch[1] : '60';
-      return `Overspeeding Alert! Your vehicle is travelling at ${curSpeed} km/h against the permitted limit of ${speedLimit} km/h. Please maintain speed limits and ensure safe driving.`;
-    }
-    if (inc.alert_type === 'GEOFENCE_WORKING' || inc.alert_type === 'GEOFENCE_BREACH' || inc.alert_type === 'ROUTE_DEVIATION') {
-      const distMatch = (inc.metric || inc.details).match(/([\d.]+)\s*km/i);
-      const dist = distMatch ? distMatch[1] : '56.4';
-      return `Geofence Breach Alert! Your vehicle number ${vehicleReg} has deviated ${dist} km from its designated route. Please verify the vehicle's location and check route deviation authorization.`;
-    }
-    if (inc.alert_type === 'GEOFENCE_PARKING') {
-      return `Night Parking Breach detected! Your vehicle number ${vehicleReg} is parked outside the approved parking zone during designated night hours. Please take necessary action to ensure vehicle safety.`;
-    }
-    if (inc.alert_type === 'TOWING' || inc.alert_type === 'TOWING_ALERT') {
-      return `Towing Alert! Unauthorised vehicle movement detected while the ignition is OFF. Please verify the vehicle's location and check for possible towing or unauthorised movement.`;
-    }
-    if (inc.alert_type === 'EXCESSIVE_STOPPAGE' || inc.alert_type === 'STOPPAGE') {
-      const parts = (inc.details || '').split('. ');
-      return parts.length > 1 ? parts[0] + '.' : inc.details;
-    }
-    if (inc.alert_type === 'LATE_START') {
-      return `Late Start Alert! Vehicle number ${vehicleReg} commenced its trip later than the scheduled departure time.`;
-    }
-    if (inc.alert_type === 'IDLE_ALERT' || inc.alert_type === 'EXCESSIVE_IDLE' || inc.alert_type === 'IDLING' || inc.alert_type === 'IDLE') {
-      const timeMatch = (inc.metric || inc.details || '').match(/(\d+)\s*(?:mins|min|minutes)/i);
-      const idleTime = timeMatch ? `${timeMatch[1]} minutes` : '27 minutes';
-      const fuelMatch = (inc.metric || inc.details || '').match(/([\d.]+)\s*L/i);
-      const fuelVol = fuelMatch ? `${fuelMatch[1]} litres` : '2.8 litres';
-      const fuelNum = fuelMatch ? parseFloat(fuelMatch[1]) : 2.8;
-      const approxCost = inc.impact_inr ? Math.round(inc.impact_inr) : Math.round(fuelNum * 94.0);
-      const locText = inc.location ? ` at ${inc.location}` : '';
-      return `Idling Alert! Vehicle number ${vehicleReg} remained idle for ${idleTime}${locText}, resulting in ${fuelVol} of diesel wasted in idling (approx. ₹${approxCost.toLocaleString('en-IN')}).`;
-    }
-    return inc.details;
+    return formatStandardizedAlertMessage({ ...inc, reg_no: vehicleReg });
   };
 
   // Export Modal Alert Logs to Excel (.xls HTML format with styles)
@@ -2060,67 +2011,11 @@ export default function AlertReportDashboard({ onReturnHome }) {
                     </div>
                   </div>
 
-                  {/* Request 1: In Fuel siphoning alert message show- Sudden drop of L detected in Fuel Tank. */}
+                  {/* Standardized Alert Message - 100% unified with Chronological Alerts */}
                   <p className={`text-xs leading-relaxed pt-2 font-mono ${
                     isLight ? 'text-slate-800 border-t border-slate-200' : 'text-slate-200 border-t border-slate-800/80'
                   }`}>
-                    {inc.alert_type === 'FUEL_SIPHONING'
-                      ? (() => {
-                          const match = (inc.metric || inc.details).match(/([\d.]+)[\s]*L/i);
-                          const qty = match ? match[1] : '28.5';
-                          return `Sudden drop of ${qty}L detected in Fuel Tank.`;
-                        })()
-                      : (inc.alert_type === 'REFUEL_DONE' || inc.alert_type === 'REFUEL_SUCCESS')
-                      ? (() => {
-                          if (inc.id === 'ALT-1013' || (inc.location && inc.location.includes('Delhi-Jaipur'))) {
-                            return `Refuelling detected! Your vehicle number ${vehicleReg} has added 380 litres of fuel at BPCL COCO Plaza Hub, Delhi-Jaipur Expressway (KM 84), at 08:30 AM.`;
-                          }
-                          const match = (inc.metric || inc.details).match(/([\d.]+)[\s]*L/i);
-                          const qty = match ? Math.round(parseFloat(match[1])) : '370';
-                          const loc = inc.location || 'Highway Fuel Station';
-                          const tm = inc.time || '08:30 AM';
-                          return `Refuelling detected! Your vehicle number ${vehicleReg} has added ${qty} litres of fuel at ${loc}, at ${tm}.`;
-                        })()
-                      : inc.alert_type === 'HARSH_BRAKING'
-                      ? `Harsh braking detected! Your vehicle number ${vehicleReg} has experienced sudden deceleration. Please check driver safety & ensure safe driving practices.`
-                      : inc.alert_type === 'OVERSPEEDING'
-                      ? (() => {
-                          const speedMatch = (inc.metric || '').match(/(\d+)\s*km\/h/i);
-                          const limitMatch = (inc.metric || '').match(/Limit:\s*(\d+)\s*km\/h/i);
-                          const curSpeed = speedMatch ? speedMatch[1] : '76';
-                          const speedLimit = limitMatch ? limitMatch[1] : '60';
-                          return `Overspeeding Alert! Your vehicle is travelling at ${curSpeed} km/h against the permitted limit of ${speedLimit} km/h. Please maintain speed limits and ensure safe driving.`;
-                        })()
-                      : (inc.alert_type === 'GEOFENCE_WORKING' || inc.alert_type === 'GEOFENCE_BREACH' || inc.alert_type === 'ROUTE_DEVIATION')
-                      ? (() => {
-                          const distMatch = (inc.metric || inc.details).match(/([\d.]+)\s*km/i);
-                          const dist = distMatch ? distMatch[1] : '56.4';
-                          return `Geofence Breach Alert! Your vehicle number ${vehicleReg} has deviated ${dist} km from its designated route. Please verify the vehicle's location and check route deviation authorization.`;
-                        })()
-                      : inc.alert_type === 'GEOFENCE_PARKING'
-                      ? `Night Parking Breach detected! Your vehicle number ${vehicleReg} is parked outside the approved parking zone during designated night hours. Please take necessary action to ensure vehicle safety.`
-                      : (inc.alert_type === 'TOWING' || inc.alert_type === 'TOWING_ALERT')
-                      ? `Towing Alert! Unauthorised vehicle movement detected while the ignition is OFF. Please verify the vehicle's location and check for possible towing or unauthorised movement.`
-                      : (inc.alert_type === 'EXCESSIVE_STOPPAGE' || inc.alert_type === 'STOPPAGE')
-                      ? (() => {
-                          const parts = (inc.details || '').split('. ');
-                          return parts.length > 1 ? parts[0] + '.' : inc.details;
-                        })()
-                      : inc.alert_type === 'LATE_START'
-                      ? `Late Start Alert! Vehicle number ${vehicleReg} commenced its trip later than the scheduled departure time.`
-                      : (inc.alert_type === 'IDLE_ALERT' || inc.alert_type === 'EXCESSIVE_IDLE' || inc.alert_type === 'IDLING' || inc.alert_type === 'IDLE')
-                      ? (() => {
-                          const timeMatch = (inc.metric || inc.details || '').match(/(\d+)\s*(?:mins|min|minutes)/i);
-                          const idleTime = timeMatch ? `${timeMatch[1]} minutes` : '27 minutes';
-                          const fuelMatch = (inc.metric || inc.details || '').match(/([\d.]+)\s*L/i);
-                          const fuelVol = fuelMatch ? `${fuelMatch[1]} litres` : '2.8 litres';
-                          const fuelNum = fuelMatch ? parseFloat(fuelMatch[1]) : 2.8;
-                          const approxCost = inc.impact_inr ? Math.round(inc.impact_inr) : Math.round(fuelNum * 94.0);
-                          const locText = inc.location ? ` at ${inc.location}` : '';
-                          return `Idling Alert! Vehicle number ${vehicleReg} remained idle for ${idleTime}${locText}, resulting in ${fuelVol} of diesel wasted in idling (approx. ₹${approxCost.toLocaleString('en-IN')}).`;
-                        })()
-                      : inc.details
-                    }
+                    {formatStandardizedAlertMessage({ ...inc, reg_no: vehicleReg })}
                   </p>
 
                   {/* Incident Footer Action Bar (Removed vehicle ID as per request 2, Removed Resolve as per request 3) */}
