@@ -902,7 +902,7 @@ function seedDataIfEmpty() {
         type: 'IDLE_ALERT',
         severity: 'HIGH',
         title: 'Idling Alert (> 15 min)',
-        message: 'Vehicle ignition is ON and vehicle is stationary for 24 continuous minutes (> 15 min threshold) at Sriperumbudur Loading Bay 4.',
+        message: 'Idling Alert! Vehicle number KA-04-MB-4190 remained idle for 24 minutes, resulting in 2.4 litres of diesel wasted in idling.',
         metric_value: '24 mins (2.4 L/hr)',
         location: 'Sriperumbudur Loading Bay 4',
         timestamp: '10:50 AM',

@@ -695,7 +695,7 @@ const RAW_INCIDENTS = [
     time: '10:50 AM',
     location: 'Kotputli Loading Bay 2',
     metric: '45 mins Idling (> 30m, 4.8 L Wasted)',
-    details: 'Vehicle ignition is ON and vehicle stationary for 45 continuous minutes (> 30 min threshold) at loading bay. Wasted 4.8L of diesel (₹451.20).',
+    details: 'Idling Alert! Vehicle number DL-01-AX-9021 remained idle for 45 minutes, resulting in 4.8 litres of diesel wasted in idling.',
     impact_inr: 451,
     status: 'PENDING'
   },
@@ -706,7 +706,7 @@ const RAW_INCIDENTS = [
     time: '09:20 AM',
     location: 'Vadodara Toll Plaza Queue',
     metric: '38 mins Idling (> 30m, 3.9 L Wasted)',
-    details: 'Vehicle ignition is ON and vehicle stationary for 38 minutes (> 30 min threshold) at expressway toll plaza queue. Wasted 3.9L of diesel.',
+    details: 'Idling Alert! Vehicle number MH-04-E-4567 remained idle for 38 minutes, resulting in 3.9 litres of diesel wasted in idling.',
     impact_inr: 367,
     status: 'ACKNOWLEDGED'
   },
@@ -717,7 +717,7 @@ const RAW_INCIDENTS = [
     time: '07:45 AM',
     location: 'Jaipur Bypass Highway Dhaba',
     metric: '52 mins Idling (> 30m, 5.4 L Wasted)',
-    details: 'Vehicle ignition is ON and vehicle stationary for 52 minutes (> 30 min threshold) while driver took breakfast halt. Wasted 5.4L of diesel.',
+    details: 'Idling Alert! Vehicle number RJ-14-GH-9012 remained idle for 52 minutes, resulting in 5.4 litres of diesel wasted in idling.',
     impact_inr: 508,
     status: 'PENDING'
   },
@@ -728,7 +728,7 @@ const RAW_INCIDENTS = [
     time: '10:35 AM',
     location: 'Dankuni Freight Hub Gate 4',
     metric: '34 mins Idling (> 30m, 3.6 L Wasted)',
-    details: 'Vehicle ignition is ON and vehicle stationary for 34 minutes (> 30 min threshold) waiting for warehouse bay gate shutter opening. Wasted 3.6L of diesel.',
+    details: 'Idling Alert! Vehicle number WB-19-J-9988 remained idle for 34 minutes, resulting in 3.6 litres of diesel wasted in idling.',
     impact_inr: 338,
     status: 'RESOLVED'
   },
@@ -772,7 +772,7 @@ const RAW_INCIDENTS = [
     time: '09:10 AM',
     location: 'Vijayawada IOCL Station Waiting Lane',
     metric: '32 mins Idling (> 30m, 3.4 L Wasted)',
-    details: 'Vehicle ignition is ON and vehicle stationary for 32 minutes (> 30 min threshold) while waiting for commercial pump bay access.',
+    details: 'Idling Alert! Vehicle number MH-04-KF-7721 remained idle for 32 minutes, resulting in 3.4 litres of diesel wasted in idling.',
     impact_inr: 320,
     status: 'RESOLVED'
   },
@@ -785,7 +785,7 @@ const RAW_INCIDENTS = [
     time: '11:15 AM',
     location: 'Sriperumbudur Loading Bay 4',
     metric: '18 mins Idling (> 15m, 1.9 L Wasted)',
-    details: 'Vehicle ignition is ON and vehicle stationary for 18 minutes (> 15 min threshold) during cargo document signoff.',
+    details: 'Idling Alert! Vehicle number KA-04-E-5678 remained idle for 18 minutes, resulting in 1.9 litres of diesel wasted in idling.',
     impact_inr: 178,
     status: 'ACKNOWLEDGED'
   },
@@ -796,7 +796,7 @@ const RAW_INCIDENTS = [
     time: '01:25 PM',
     location: 'Dharuhera Toll Plaza Staging Area',
     metric: '22 mins Idling (> 15m, 2.3 L Wasted)',
-    details: 'Vehicle ignition is ON and vehicle stationary for 22 minutes (> 15 min threshold) awaiting highway lane clearance.',
+    details: 'Idling Alert! Vehicle number HR-55-B-4321 remained idle for 22 minutes, resulting in 2.3 litres of diesel wasted in idling.',
     impact_inr: 216,
     status: 'PENDING'
   },
@@ -807,7 +807,7 @@ const RAW_INCIDENTS = [
     time: '02:40 PM',
     location: 'Varanasi Bypass Freight Hub Entry',
     metric: '24 mins Idling (> 15m, 2.5 L Wasted)',
-    details: 'Vehicle ignition is ON and vehicle stationary for 24 minutes (> 15 min threshold) during weighbridge line staging.',
+    details: 'Idling Alert! Vehicle number UP-32-BN-3490 remained idle for 24 minutes, resulting in 2.5 litres of diesel wasted in idling.',
     impact_inr: 235,
     status: 'RESOLVED'
   },
@@ -818,7 +818,7 @@ const RAW_INCIDENTS = [
     time: '04:10 PM',
     location: 'Samruddhi Mahamarg Rest Stop',
     metric: '27 mins Idling (> 15m, 2.8 L Wasted)',
-    details: 'Vehicle ignition is ON and vehicle stationary for 27 minutes (> 15 min threshold) while auxiliary system cooling.',
+    details: 'Idling Alert! Vehicle number MH-12-RN-8842 remained idle for 27 minutes, resulting in 2.8 litres of diesel wasted in idling.',
     impact_inr: 263,
     status: 'PENDING'
   }
@@ -1757,6 +1757,14 @@ export default function AlertReportDashboard({ onReturnHome }) {
                         })()
                       : inc.alert_type === 'LATE_START'
                       ? `Late Start Alert! Vehicle number ${vehicleReg} commenced its trip later than the scheduled departure time.`
+                      : (inc.alert_type === 'IDLE_ALERT' || inc.alert_type === 'EXCESSIVE_IDLE' || inc.alert_type === 'IDLING' || inc.alert_type === 'IDLE')
+                      ? (() => {
+                          const timeMatch = (inc.metric || inc.details || '').match(/(\d+)\s*(?:mins|min|minutes)/i);
+                          const idleTime = timeMatch ? `${timeMatch[1]} minutes` : '27 minutes';
+                          const fuelMatch = (inc.metric || inc.details || '').match(/([\d.]+)\s*L/i);
+                          const fuelVol = fuelMatch ? `${fuelMatch[1]} litres` : '2.8 litres';
+                          return `Idling Alert! Vehicle number ${vehicleReg} remained idle for ${idleTime}, resulting in ${fuelVol} of diesel wasted in idling.`;
+                        })()
                       : inc.details
                     }
                   </p>
