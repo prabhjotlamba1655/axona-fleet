@@ -928,7 +928,7 @@ function seedDataIfEmpty() {
         type: 'ROUTE_DEVIATION',
         severity: 'HIGH',
         title: 'Route Deviation Alert (> 50 km)',
-        message: 'Truck deviated 56.4 km off planned Jaipur Bypass route towards unapproved village link.',
+        message: 'Geofence Breach Alert! Your vehicle number DL-01-AX-9021 has deviated 56.4 km from its designated route. Please verify the vehicle\'s location and check route deviation authorization.',
         metric_value: '56.4 km Deviation',
         location: 'State Highway 19, Dausa link',
         timestamp: '10:05 AM',

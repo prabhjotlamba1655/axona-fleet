@@ -507,7 +507,7 @@ const RAW_INCIDENTS = [
     time: '10:05 AM',
     location: 'State Highway 19, Dausa link',
     metric: '56.4 km Off Corridor',
-    details: 'Truck deviated 56.4 km outside designated active corridor polygon towards unapproved village link without dispatch authorization.',
+    details: 'Geofence Breach Alert! Your vehicle number HR-55-B-4321 has deviated 56.4 km from its designated route. Please verify the vehicle\'s location and check route deviation authorization.',
     impact_inr: 0,
     status: 'PENDING'
   },
@@ -518,7 +518,7 @@ const RAW_INCIDENTS = [
     time: '09:20 AM',
     location: 'Beawar Bypass Detour Link, RJ',
     metric: '44.8 km Off Corridor',
-    details: 'Driver took unauthorized bypass route avoiding scheduled weigh bridge checkpoint.',
+    details: 'Geofence Breach Alert! Your vehicle number UP-32-HN-1244 has deviated 44.8 km from its designated route. Please verify the vehicle\'s location and check route deviation authorization.',
     impact_inr: 0,
     status: 'ACKNOWLEDGED'
   },
@@ -1739,6 +1739,12 @@ export default function AlertReportDashboard({ onReturnHome }) {
                           const curSpeed = speedMatch ? speedMatch[1] : '76';
                           const speedLimit = limitMatch ? limitMatch[1] : '60';
                           return `Overspeeding Alert! Your vehicle is travelling at ${curSpeed} km/h against the permitted limit of ${speedLimit} km/h. Please maintain speed limits and ensure safe driving.`;
+                        })()
+                      : (inc.alert_type === 'GEOFENCE_WORKING' || inc.alert_type === 'GEOFENCE_BREACH' || inc.alert_type === 'ROUTE_DEVIATION')
+                      ? (() => {
+                          const distMatch = (inc.metric || inc.details).match(/([\d.]+)\s*km/i);
+                          const dist = distMatch ? distMatch[1] : '56.4';
+                          return `Geofence Breach Alert! Your vehicle number ${vehicleReg} has deviated ${dist} km from its designated route. Please verify the vehicle's location and check route deviation authorization.`;
                         })()
                       : inc.details
                     }
