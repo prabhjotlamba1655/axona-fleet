@@ -531,7 +531,7 @@ const RAW_INCIDENTS = [
     time: '01:45 AM',
     location: 'Vijayawada Outer Ring Highway Layby',
     metric: 'Parked Outside Yard (4.2h)',
-    details: 'Vehicle halted overnight at unmonitored road shoulder instead of authorized secure logistics yard (Curfew 11 PM - 5 AM).',
+    details: 'Night Parking Breach detected! Your vehicle number MH-04-KF-7721 is parked outside the approved parking zone during designated night hours. Please take necessary action to ensure vehicle safety.',
     impact_inr: 0,
     status: 'RESOLVED'
   },
@@ -542,7 +542,7 @@ const RAW_INCIDENTS = [
     time: '02:15 AM',
     location: 'Hosur Highway Service Road Dhaba',
     metric: 'Parked Outside Yard (3.8h)',
-    details: 'Security geofence alert: truck stationary outside approved perimeter with high-value electronics consignment.',
+    details: 'Night Parking Breach detected! Your vehicle number RJ-14-GH-6621 is parked outside the approved parking zone during designated night hours. Please take necessary action to ensure vehicle safety.',
     impact_inr: 0,
     status: 'PENDING'
   },
@@ -1746,6 +1746,8 @@ export default function AlertReportDashboard({ onReturnHome }) {
                           const dist = distMatch ? distMatch[1] : '56.4';
                           return `Geofence Breach Alert! Your vehicle number ${vehicleReg} has deviated ${dist} km from its designated route. Please verify the vehicle's location and check route deviation authorization.`;
                         })()
+                      : inc.alert_type === 'GEOFENCE_PARKING'
+                      ? `Night Parking Breach detected! Your vehicle number ${vehicleReg} is parked outside the approved parking zone during designated night hours. Please take necessary action to ensure vehicle safety.`
                       : inc.details
                     }
                   </p>
