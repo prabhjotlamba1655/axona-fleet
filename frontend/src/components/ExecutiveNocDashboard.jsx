@@ -16,7 +16,7 @@ import {
 
   Plus, Route, CreditCard, UserCheck, UserPlus, UserMinus, ShieldCheck, UserX, AlertCircle,
 
-  Smartphone, Radio, Signal, BatteryCharging
+  Smartphone, Radio, Signal, BatteryCharging, Lock
 
 } from 'lucide-react';
 
@@ -220,13 +220,111 @@ export default function ExecutiveNocDashboard({
 
   onOpenSettings,
 
-  autoScrollSpeed = 'normal'
+  autoScrollSpeed = 'normal',
+
+  selectedProfile: propSelectedProfile,
+
+  setSelectedProfile: propSetSelectedProfile
 
 }) {
 
   const { theme } = useTheme();
 
   const isLight = theme === 'light';
+
+  // -------------------------------------------------------------------------
+  // PROFILE PLAN TIER GATING (Basic | Standard | Advanced)
+  // Basic: Row 1 complete, Geofence (Row 3, Box 5)
+  // Standard: Row 1, Row 2 & Row 3 complete
+  // Advanced: Complete Software (Rows 1, 2, 3, 4)
+  // -------------------------------------------------------------------------
+  const [currentProfile, setCurrentProfile] = useState(() => {
+    return propSelectedProfile || localStorage.getItem('axona_profile_plan') || 'Advanced';
+  });
+
+  useEffect(() => {
+    if (propSelectedProfile) {
+      setCurrentProfile(propSelectedProfile);
+    }
+  }, [propSelectedProfile]);
+
+  useEffect(() => {
+    const handlePlanChange = (e) => {
+      if (e.detail) {
+        setCurrentProfile(e.detail);
+      }
+    };
+    window.addEventListener('axona_plan_changed', handlePlanChange);
+    return () => window.removeEventListener('axona_plan_changed', handlePlanChange);
+  }, []);
+
+  const [upgradePrompt, setUpgradePrompt] = useState(null);
+
+  const handleUpgradeToPlan = (plan) => {
+    setCurrentProfile(plan);
+    localStorage.setItem('axona_profile_plan', plan);
+    if (propSetSelectedProfile) {
+      propSetSelectedProfile(plan);
+    }
+    window.dispatchEvent(new CustomEvent('axona_plan_changed', { detail: plan }));
+    setUpgradePrompt(null);
+  };
+
+  const isFeatureUnlocked = (featureKey) => {
+    const plan = currentProfile || 'Advanced';
+    if (plan === 'Advanced') return true;
+
+    // Basic: Row 1 complete, Geofence
+    const basicFeatures = ['TOTAL_FLEET', 'WORKING', 'IDLE', 'STOPPED', 'LATE_START', 'GEOFENCE'];
+    if (basicFeatures.includes(featureKey)) return true;
+
+    if (plan === 'Standard') {
+      // Standard: Row 1, Row 2 & Row 3 complete
+      const standardFeatures = [
+        ...basicFeatures,
+        'SIPHONING', 'REFUEL_MISMATCH', 'IDLING_LOSS', 'HIGH_CPH', 'ROUTE_DEVIATION',
+        'FUEL_CONSUMED_TODAY', 'REFUEL_DONE', 'REFUEL_REQ_10H', 'SERVICE_DUE'
+      ];
+      return standardFeatures.includes(featureKey);
+    }
+
+    return false;
+  };
+
+  const getRequiredPlan = (featureKey) => {
+    const advancedFeatures = ['E_WAY_BILL', 'CHALLANS', 'RTO_COMPLIANCE', 'MOBILE_TRACKING', 'DRIVER_DL'];
+    if (advancedFeatures.includes(featureKey)) return 'Advanced';
+    return 'Standard';
+  };
+
+  const GatedCardOverlay = ({ featureKey, title, isUnlocked, onUpgradeClick }) => {
+    if (isUnlocked) return null;
+    const reqPlan = getRequiredPlan(featureKey);
+    return (
+      <div 
+        onClick={(e) => {
+          e.stopPropagation();
+          onUpgradeClick({ featureName: title, requiredPlan: reqPlan });
+        }}
+        className={`absolute inset-0 z-20 flex flex-col items-center justify-center p-2.5 text-center transition-all duration-150 cursor-pointer group rounded-xl select-none ${
+          isLight 
+            ? 'bg-slate-900/85 backdrop-blur-[2px] hover:bg-slate-900/90' 
+            : 'bg-[#060D1E]/88 backdrop-blur-[2px] hover:bg-[#060D1E]/95'
+        }`}
+        title={`Feature locked in ${currentProfile} plan. Click to upgrade to ${reqPlan} to unlock ${title}.`}
+      >
+        <div className="w-8 h-8 rounded-full bg-slate-800/90 border border-slate-700/80 flex items-center justify-center mb-1.5 shadow-md group-hover:scale-110 group-hover:border-amber-400 transition">
+          <Lock size={15} className="text-amber-400 group-hover:text-amber-300" />
+        </div>
+        <div className="text-xs font-black uppercase tracking-wider text-white drop-shadow font-['Chakra_Petch'] line-clamp-1 px-1">
+          {title}
+        </div>
+        <div className="mt-1.5 text-[9.5px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/50 group-hover:bg-amber-500 group-hover:text-slate-950 transition flex items-center gap-1 shadow-xs">
+          <span>Upgrade to {reqPlan}</span>
+        </div>
+      </div>
+    );
+  };
 
 
 
@@ -2563,6 +2661,30 @@ export default function ExecutiveNocDashboard({
 
 
   const handleBoxClick = (boxKey) => {
+
+    if (!isFeatureUnlocked(boxKey)) {
+      const featureTitles = {
+        'SIPHONING': 'Fuel Siphoning',
+        'REFUEL_MISMATCH': 'Refuel Mismatch',
+        'IDLING_LOSS': 'Idling Loss',
+        'HIGH_CPH': 'High CPH Loss',
+        'ROUTE_DEVIATION': 'Route Deviation',
+        'FUEL_CONSUMED_TODAY': 'Fuel Consumed',
+        'REFUEL_DONE': 'Refuelling Done',
+        'REFUEL_REQ_10H': 'Refuel Req 10h',
+        'SERVICE_DUE': 'Service Due',
+        'E_WAY_BILL': 'E-Way Bill',
+        'CHALLANS': 'Challans',
+        'RTO_COMPLIANCE': 'Compliance RTO',
+        'MOBILE_TRACKING': 'Mobile Tracking',
+        'DRIVER_DL': 'Driver DL Verification'
+      };
+      setUpgradePrompt({
+        featureName: featureTitles[boxKey] || boxKey,
+        requiredPlan: getRequiredPlan(boxKey)
+      });
+      return;
+    }
 
     setDrilldownSearch('');
 
@@ -9409,6 +9531,9 @@ export default function ExecutiveNocDashboard({
 
             >
 
+  <div className={`flex flex-col justify-between flex-1 h-full w-full ${!isFeatureUnlocked('SIPHONING') ? 'opacity-20 filter blur-[1.5px] select-none pointer-events-none' : ''}`}>
+
+
               <div className={`flex items-center justify-between text-xs ${isLight ? 'text-rose-800' : 'text-rose-400'} font-bold uppercase tracking-tight shrink-0`}>
 
                 <span className="truncate pr-1">Fuel Siphoning</span>
@@ -9461,7 +9586,12 @@ export default function ExecutiveNocDashboard({
 
               </div>
 
-            </div>
+            
+  </div>
+
+  <GatedCardOverlay featureKey="SIPHONING" title="Fuel Siphoning" isUnlocked={isFeatureUnlocked('SIPHONING')} onUpgradeClick={setUpgradePrompt} />
+
+</div>
 
 
 
@@ -9476,6 +9606,9 @@ export default function ExecutiveNocDashboard({
               style={getBoxThemeStyle('amber')}
 
             >
+
+  <div className={`flex flex-col justify-between flex-1 h-full w-full ${!isFeatureUnlocked('REFUEL_MISMATCH') ? 'opacity-20 filter blur-[1.5px] select-none pointer-events-none' : ''}`}>
+
 
               <div className={`flex items-center justify-between text-xs ${isLight ? 'text-amber-800' : 'text-amber-400'} font-bold uppercase tracking-tight shrink-0`}>
 
@@ -9529,7 +9662,12 @@ export default function ExecutiveNocDashboard({
 
               </div>
 
-            </div>
+            
+  </div>
+
+  <GatedCardOverlay featureKey="REFUEL_MISMATCH" title="Refuel Mismatch" isUnlocked={isFeatureUnlocked('REFUEL_MISMATCH')} onUpgradeClick={setUpgradePrompt} />
+
+</div>
 
 
 
@@ -9546,6 +9684,9 @@ export default function ExecutiveNocDashboard({
               style={getBoxThemeStyle('amber')}
 
             >
+
+  <div className={`flex flex-col justify-between flex-1 h-full w-full ${!isFeatureUnlocked('IDLING_LOSS') ? 'opacity-20 filter blur-[1.5px] select-none pointer-events-none' : ''}`}>
+
 
               <div className={`flex items-center justify-between text-xs ${isLight ? 'text-amber-800' : 'text-amber-400'} font-bold uppercase tracking-tight shrink-0`}>
 
@@ -9599,7 +9740,12 @@ export default function ExecutiveNocDashboard({
 
               </div>
 
-            </div>
+            
+  </div>
+
+  <GatedCardOverlay featureKey="IDLING_LOSS" title="Idling Loss" isUnlocked={isFeatureUnlocked('IDLING_LOSS')} onUpgradeClick={setUpgradePrompt} />
+
+</div>
 
 
 
@@ -9614,6 +9760,9 @@ export default function ExecutiveNocDashboard({
               style={getBoxThemeStyle('purple')}
 
             >
+
+  <div className={`flex flex-col justify-between flex-1 h-full w-full ${!isFeatureUnlocked('HIGH_CPH') ? 'opacity-20 filter blur-[1.5px] select-none pointer-events-none' : ''}`}>
+
 
               <div className={`flex items-center justify-between text-xs ${isLight ? 'text-purple-800' : 'text-purple-300'} font-bold uppercase tracking-tight shrink-0`}>
 
@@ -9667,7 +9816,12 @@ export default function ExecutiveNocDashboard({
 
               </div>
 
-            </div>
+            
+  </div>
+
+  <GatedCardOverlay featureKey="HIGH_CPH" title="High CPH Loss" isUnlocked={isFeatureUnlocked('HIGH_CPH')} onUpgradeClick={setUpgradePrompt} />
+
+</div>
 
 
 
@@ -9684,6 +9838,9 @@ export default function ExecutiveNocDashboard({
               style={getBoxThemeStyle('cyan')}
 
             >
+
+  <div className={`flex flex-col justify-between flex-1 h-full w-full ${!isFeatureUnlocked('ROUTE_DEVIATION') ? 'opacity-20 filter blur-[1.5px] select-none pointer-events-none' : ''}`}>
+
 
               <div className={`flex items-center justify-between text-xs ${isLight ? 'text-cyan-800' : 'text-cyan-400'} font-bold uppercase tracking-tight shrink-0`}>
 
@@ -9737,7 +9894,12 @@ export default function ExecutiveNocDashboard({
 
               </div>
 
-            </div>
+            
+  </div>
+
+  <GatedCardOverlay featureKey="ROUTE_DEVIATION" title="Route Deviation" isUnlocked={isFeatureUnlocked('ROUTE_DEVIATION')} onUpgradeClick={setUpgradePrompt} />
+
+</div>
 
           </div>
 
@@ -9795,6 +9957,9 @@ export default function ExecutiveNocDashboard({
 
             >
 
+  <div className={`flex flex-col justify-between flex-1 h-full w-full ${!isFeatureUnlocked('FUEL_CONSUMED_TODAY') ? 'opacity-20 filter blur-[1.5px] select-none pointer-events-none' : ''}`}>
+
+
               <div className={`flex items-center justify-between text-xs font-bold ${isLight ? 'text-amber-800' : 'text-amber-400'} uppercase tracking-tight shrink-0`}>
 
                 <span className="whitespace-nowrap">Fuel Consumed</span>
@@ -9845,7 +10010,12 @@ export default function ExecutiveNocDashboard({
 
               </div>
 
-            </div>
+            
+  </div>
+
+  <GatedCardOverlay featureKey="FUEL_CONSUMED_TODAY" title="Fuel Consumed" isUnlocked={isFeatureUnlocked('FUEL_CONSUMED_TODAY')} onUpgradeClick={setUpgradePrompt} />
+
+</div>
 
 
 
@@ -9862,6 +10032,9 @@ export default function ExecutiveNocDashboard({
               style={getBoxThemeStyle('green')}
 
             >
+
+  <div className={`flex flex-col justify-between flex-1 h-full w-full ${!isFeatureUnlocked('REFUEL_DONE') ? 'opacity-20 filter blur-[1.5px] select-none pointer-events-none' : ''}`}>
+
 
               <div className={`flex items-center justify-between text-xs font-bold ${isLight ? 'text-emerald-800' : 'text-emerald-400'} uppercase tracking-wider shrink-0`}>
 
@@ -9915,7 +10088,12 @@ export default function ExecutiveNocDashboard({
 
               </div>
 
-            </div>
+            
+  </div>
+
+  <GatedCardOverlay featureKey="REFUEL_DONE" title="Refuelling Done" isUnlocked={isFeatureUnlocked('REFUEL_DONE')} onUpgradeClick={setUpgradePrompt} />
+
+</div>
 
 
 
@@ -9932,6 +10110,9 @@ export default function ExecutiveNocDashboard({
               style={getBoxThemeStyle('amber')}
 
             >
+
+  <div className={`flex flex-col justify-between flex-1 h-full w-full ${!isFeatureUnlocked('REFUEL_REQ_10H') ? 'opacity-20 filter blur-[1.5px] select-none pointer-events-none' : ''}`}>
+
 
               <div className={`flex items-center justify-between text-xs font-bold ${isLight ? 'text-amber-800' : 'text-amber-400'} uppercase tracking-wider shrink-0`}>
 
@@ -9985,7 +10166,12 @@ export default function ExecutiveNocDashboard({
 
               </div>
 
-            </div>
+            
+  </div>
+
+  <GatedCardOverlay featureKey="REFUEL_REQ_10H" title="Refuel Req 10h" isUnlocked={isFeatureUnlocked('REFUEL_REQ_10H')} onUpgradeClick={setUpgradePrompt} />
+
+</div>
 
 
 
@@ -10000,6 +10186,9 @@ export default function ExecutiveNocDashboard({
               style={getBoxThemeStyle('cyan')}
 
             >
+
+  <div className={`flex flex-col justify-between flex-1 h-full w-full ${!isFeatureUnlocked('SERVICE_DUE') ? 'opacity-20 filter blur-[1.5px] select-none pointer-events-none' : ''}`}>
+
 
               <div className={`flex items-center justify-between text-xs font-bold ${isLight ? 'text-cyan-800' : 'text-cyan-400'} uppercase tracking-wider shrink-0`}>
 
@@ -10033,7 +10222,12 @@ export default function ExecutiveNocDashboard({
 
               </div>
 
-            </div>
+            
+  </div>
+
+  <GatedCardOverlay featureKey="SERVICE_DUE" title="Service Due" isUnlocked={isFeatureUnlocked('SERVICE_DUE')} onUpgradeClick={setUpgradePrompt} />
+
+</div>
 
 
 
@@ -10147,6 +10341,9 @@ export default function ExecutiveNocDashboard({
 
             >
 
+  <div className={`flex flex-col justify-between flex-1 h-full w-full ${!isFeatureUnlocked('E_WAY_BILL') ? 'opacity-20 filter blur-[1.5px] select-none pointer-events-none' : ''}`}>
+
+
               <div className={`flex items-center justify-between text-xs font-bold ${isLight ? 'text-cyan-800' : 'text-cyan-400'} uppercase tracking-wider shrink-0`}>
 
                 <span className="whitespace-nowrap">E-Way Bill</span>
@@ -10173,7 +10370,12 @@ export default function ExecutiveNocDashboard({
 
               </div>
 
-            </div>
+            
+  </div>
+
+  <GatedCardOverlay featureKey="E_WAY_BILL" title="E-Way Bill" isUnlocked={isFeatureUnlocked('E_WAY_BILL')} onUpgradeClick={setUpgradePrompt} />
+
+</div>
 
 
 
@@ -10190,6 +10392,9 @@ export default function ExecutiveNocDashboard({
               style={getBoxThemeStyle('green')}
 
             >
+
+  <div className={`flex flex-col justify-between flex-1 h-full w-full ${!isFeatureUnlocked('CHALLANS') ? 'opacity-20 filter blur-[1.5px] select-none pointer-events-none' : ''}`}>
+
 
               <div className={`flex items-center justify-between text-xs font-bold ${isLight ? 'text-emerald-800' : 'text-emerald-400'} uppercase tracking-wider shrink-0`}>
 
@@ -10217,7 +10422,12 @@ export default function ExecutiveNocDashboard({
 
               </div>
 
-            </div>
+            
+  </div>
+
+  <GatedCardOverlay featureKey="CHALLANS" title="Challans" isUnlocked={isFeatureUnlocked('CHALLANS')} onUpgradeClick={setUpgradePrompt} />
+
+</div>
 
 
 
@@ -10234,6 +10444,9 @@ export default function ExecutiveNocDashboard({
               style={getBoxThemeStyle('green')}
 
             >
+
+  <div className={`flex flex-col justify-between flex-1 h-full w-full ${!isFeatureUnlocked('RTO_COMPLIANCE') ? 'opacity-20 filter blur-[1.5px] select-none pointer-events-none' : ''}`}>
+
 
               <div className={`flex items-center justify-between text-xs font-bold ${isLight ? 'text-emerald-800' : 'text-emerald-400'} uppercase tracking-wider shrink-0`}>
 
@@ -10261,7 +10474,12 @@ export default function ExecutiveNocDashboard({
 
               </div>
 
-            </div>
+            
+  </div>
+
+  <GatedCardOverlay featureKey="RTO_COMPLIANCE" title="Compliance RTO" isUnlocked={isFeatureUnlocked('RTO_COMPLIANCE')} onUpgradeClick={setUpgradePrompt} />
+
+</div>
 
 
 
@@ -10278,6 +10496,9 @@ export default function ExecutiveNocDashboard({
               style={getBoxThemeStyle('amber')}
 
             >
+
+  <div className={`flex flex-col justify-between flex-1 h-full w-full ${!isFeatureUnlocked('MOBILE_TRACKING') ? 'opacity-20 filter blur-[1.5px] select-none pointer-events-none' : ''}`}>
+
 
               <div className={`flex items-center justify-between text-xs font-bold ${isLight ? 'text-amber-800' : 'text-amber-400'} uppercase tracking-wider shrink-0`}>
 
@@ -10305,7 +10526,12 @@ export default function ExecutiveNocDashboard({
 
               </div>
 
-            </div>
+            
+  </div>
+
+  <GatedCardOverlay featureKey="MOBILE_TRACKING" title="Mobile Tracking" isUnlocked={isFeatureUnlocked('MOBILE_TRACKING')} onUpgradeClick={setUpgradePrompt} />
+
+</div>
 
 
 
@@ -10322,6 +10548,9 @@ export default function ExecutiveNocDashboard({
               style={getBoxThemeStyle('purple')}
 
             >
+
+  <div className={`flex flex-col justify-between flex-1 h-full w-full ${!isFeatureUnlocked('DRIVER_DL') ? 'opacity-20 filter blur-[1.5px] select-none pointer-events-none' : ''}`}>
+
 
               <div className={`flex items-center justify-between text-xs font-bold ${isLight ? 'text-purple-800' : 'text-purple-300'} uppercase tracking-wider shrink-0`}>
 
@@ -10353,7 +10582,12 @@ export default function ExecutiveNocDashboard({
 
               </div>
 
-            </div>
+            
+  </div>
+
+  <GatedCardOverlay featureKey="DRIVER_DL" title="Driver DL" isUnlocked={isFeatureUnlocked('DRIVER_DL')} onUpgradeClick={setUpgradePrompt} />
+
+</div>
 
           </div>
 
@@ -14550,6 +14784,164 @@ export default function ExecutiveNocDashboard({
         </div>
 
       )}
+
+      {/* ------------------------------------------------------------------- */}
+      {/* FEATURE PLAN UPGRADE MODAL DIALOG */}
+      {/* ------------------------------------------------------------------- */}
+      {upgradePrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className={`w-full max-w-xl rounded-2xl border shadow-2xl overflow-hidden font-mono ${
+            isLight ? 'bg-white border-slate-300 text-slate-800' : 'bg-[#0B132B] border-slate-700 text-slate-100'
+          }`}>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-400/40 flex items-center justify-center">
+                  <Lock size={16} className="text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-wider font-['Chakra_Petch']">
+                    Plan Upgrade Required
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Feature: <span className="text-amber-300 font-bold">{upgradePrompt.featureName}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setUpgradePrompt(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-4">
+              <div className={`p-3.5 rounded-xl border text-xs leading-relaxed ${
+                isLight ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-amber-950/30 border-amber-500/40 text-amber-200'
+              }`}>
+                The <b>{upgradePrompt.featureName}</b> module is available on the{' '}
+                <span className="font-bold underline uppercase">{upgradePrompt.requiredPlan}</span> plan. Upgrade your profile to unlock live telemetry, instant alerts, drill-down analytics, and historical exports.
+              </div>
+
+              {/* Plan Comparison Grid */}
+              <div className="grid grid-cols-3 gap-2.5 text-[11px]">
+                {/* Basic */}
+                <div className={`p-3 rounded-xl border flex flex-col justify-between ${
+                  currentProfile === 'Basic'
+                    ? 'border-emerald-500 bg-emerald-500/10'
+                    : 'border-slate-800 bg-slate-900/40 opacity-70'
+                }`}>
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-bold uppercase text-emerald-400">Basic</span>
+                      {currentProfile === 'Basic' && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Current</span>
+                      )}
+                    </div>
+                    <ul className="space-y-1 text-[10px] text-slate-300">
+                      <li>✓ Live Telemetry (Row 1)</li>
+                      <li>✓ Geo-Fencing Breach</li>
+                      <li className="text-slate-500">✗ Diesel 5 Pillars</li>
+                      <li className="text-slate-500">✗ Logistics Intel</li>
+                      <li className="text-slate-500">✗ Compliance & DL</li>
+                    </ul>
+                  </div>
+                  {currentProfile !== 'Basic' && (
+                    <button
+                      onClick={() => handleUpgradeToPlan('Basic')}
+                      className="mt-3 w-full py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold transition cursor-pointer"
+                    >
+                      Switch to Basic
+                    </button>
+                  )}
+                </div>
+
+                {/* Standard */}
+                <div className={`p-3 rounded-xl border flex flex-col justify-between ${
+                  currentProfile === 'Standard'
+                    ? 'border-cyan-500 bg-cyan-500/10'
+                    : upgradePrompt.requiredPlan === 'Standard'
+                    ? 'border-cyan-500/80 bg-cyan-950/30 ring-1 ring-cyan-500/50'
+                    : 'border-slate-800 bg-slate-900/40'
+                }`}>
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-bold uppercase text-cyan-400">Standard</span>
+                      {currentProfile === 'Standard' && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">Current</span>
+                      )}
+                    </div>
+                    <ul className="space-y-1 text-[10px] text-slate-300">
+                      <li>✓ All Basic Features</li>
+                      <li>✓ Diesel 5 Pillars (Row 2)</li>
+                      <li>✓ Logistics Intel (Row 3)</li>
+                      <li className="text-slate-500">✗ Compliance & DL</li>
+                    </ul>
+                  </div>
+                  <button
+                    onClick={() => handleUpgradeToPlan('Standard')}
+                    disabled={currentProfile === 'Standard'}
+                    className={`mt-3 w-full py-1.5 rounded text-[10.5px] font-bold transition ${
+                      currentProfile === 'Standard'
+                        ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-md cursor-pointer'
+                    }`}
+                  >
+                    {currentProfile === 'Standard' ? 'Active' : 'Switch to Standard'}
+                  </button>
+                </div>
+
+                {/* Advanced */}
+                <div className={`p-3 rounded-xl border flex flex-col justify-between ${
+                  currentProfile === 'Advanced'
+                    ? 'border-purple-500 bg-purple-500/10'
+                    : 'border-purple-500/80 bg-purple-950/30 ring-1 ring-purple-500/50'
+                }`}>
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-bold uppercase text-purple-400">Advanced</span>
+                      {currentProfile === 'Advanced' && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40">Current</span>
+                      )}
+                    </div>
+                    <ul className="space-y-1 text-[10px] text-slate-300">
+                      <li>✓ All Standard Features</li>
+                      <li>✓ Full Row 4 Intelligence</li>
+                      <li>✓ E-Way & Challans</li>
+                      <li>✓ RTO & Sarathi DL</li>
+                    </ul>
+                  </div>
+                  <button
+                    onClick={() => handleUpgradeToPlan('Advanced')}
+                    disabled={currentProfile === 'Advanced'}
+                    className={`mt-3 w-full py-1.5 rounded text-[10.5px] font-bold transition ${
+                      currentProfile === 'Advanced'
+                        ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md cursor-pointer'
+                    }`}
+                  >
+                    {currentProfile === 'Advanced' ? 'Active' : 'Unlock All (Advanced)'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-slate-800/80 bg-slate-900/60 flex items-center justify-between">
+              <span className="text-[10px] text-slate-400">Instant profile switch enabled</span>
+              <button
+                onClick={() => setUpgradePrompt(null)}
+                className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
     </div>
 

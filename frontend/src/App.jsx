@@ -33,6 +33,15 @@ export default function App() {
   const [wsConnected, setWsConnected] = useState(false);
   const [unreadAlertCount, setUnreadAlertCount] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState(() => {
+    return localStorage.getItem('axona_profile_plan') || 'Advanced';
+  });
+
+  const handleProfileChange = (plan) => {
+    setSelectedProfile(plan);
+    localStorage.setItem('axona_profile_plan', plan);
+    window.dispatchEvent(new CustomEvent('axona_plan_changed', { detail: plan }));
+  };
 
   // Settings Modal State
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -137,6 +146,8 @@ export default function App() {
         setSidebarCollapsed={setSidebarCollapsed}
         theme={theme}
         toggleTheme={toggleTheme}
+        selectedProfile={selectedProfile}
+        setSelectedProfile={handleProfileChange}
       />
 
       {/* Main Workspace Body */}
@@ -199,6 +210,8 @@ export default function App() {
                   setSettingsOpen(true);
                 }}
                 autoScrollSpeed={scrollSpeed}
+                selectedProfile={selectedProfile}
+                setSelectedProfile={handleProfileChange}
               />
             </div>
           )}
