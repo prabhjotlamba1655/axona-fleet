@@ -660,7 +660,7 @@ const RAW_INCIDENTS = [
     time: '08:42 AM',
     location: 'Sriperumbudur Central Depot',
     metric: '08:42 AM First Motion (+42m)',
-    details: 'Engine first moved at 08:42 AM today (Scheduled departure was 08:00 AM sharp). Shift dispatch delay of 42 minutes.',
+    details: 'Late Start Alert! Vehicle number KA-04-E-5678 commenced its trip later than the scheduled departure time.',
     impact_inr: 0,
     status: 'ACKNOWLEDGED'
   },
@@ -671,7 +671,7 @@ const RAW_INCIDENTS = [
     time: '09:15 AM',
     location: 'Gurgaon Central Logistics Yard',
     metric: '09:15 AM First Motion (+1h 15m)',
-    details: 'Morning dispatch delay due to driver handover paperwork queue.',
+    details: 'Late Start Alert! Vehicle number HR-55-B-4321 commenced its trip later than the scheduled departure time.',
     impact_inr: 0,
     status: 'RESOLVED'
   },
@@ -682,7 +682,7 @@ const RAW_INCIDENTS = [
     time: '08:55 AM',
     location: 'Lucknow Transport Nagar Depot',
     metric: '08:55 AM First Motion (+55m)',
-    details: 'Delayed gate clearance due to pre-trip tire pressure audit.',
+    details: 'Late Start Alert! Vehicle number UP-32-BN-3490 commenced its trip later than the scheduled departure time.',
     impact_inr: 0,
     status: 'ACKNOWLEDGED'
   },
@@ -761,7 +761,7 @@ const RAW_INCIDENTS = [
     time: '08:48 AM',
     location: 'Jaipur Logistics Hub Terminal 2',
     metric: '08:48 AM First Motion (+48m)',
-    details: 'Pre-trip brake pressure check delay pushed departure 48 mins past 08:00 AM shift start.',
+    details: 'Late Start Alert! Vehicle number RJ-14-GH-9012 commenced its trip later than the scheduled departure time.',
     impact_inr: 0,
     status: 'PENDING'
   },
@@ -1755,6 +1755,8 @@ export default function AlertReportDashboard({ onReturnHome }) {
                           const parts = (inc.details || '').split('. ');
                           return parts.length > 1 ? parts[0] + '.' : inc.details;
                         })()
+                      : inc.alert_type === 'LATE_START'
+                      ? `Late Start Alert! Vehicle number ${vehicleReg} commenced its trip later than the scheduled departure time.`
                       : inc.details
                     }
                   </p>

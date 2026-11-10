@@ -941,7 +941,7 @@ function seedDataIfEmpty() {
         type: 'LATE_START',
         severity: 'MEDIUM',
         title: 'Late Start Alert (Started after 8:00 AM)',
-        message: 'Engine first moved at 08:42 AM today (Scheduled departure was 07:00 AM). Shift delay 1 hr 42 min.',
+        message: 'Late Start Alert! Vehicle number MH-12-RN-8842 commenced its trip later than the scheduled departure time.',
         metric_value: '08:42 AM Start',
         location: 'JNPT Freight Yard, Navi Mumbai',
         timestamp: '08:42 AM',
