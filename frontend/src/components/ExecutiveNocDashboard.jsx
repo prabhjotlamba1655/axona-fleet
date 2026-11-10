@@ -3626,37 +3626,8 @@ export default function ExecutiveNocDashboard({
 
               )
 
-            },
-
-            {
-
-              header: 'LAST INCIDENT',
-
-              key: 'last_incident',
-
-              csvValue: r => `${r.history?.lastDate || r.detected_time} (${r.history?.lastLiters || r.siphoned_liters} L)`,
-
-              render: (r) => (
-
-                <div className="font-mono text-xs whitespace-nowrap">
-
-                  <span className="text-slate-200 block text-[11px] leading-tight font-medium">
-
-                    {r.history?.lastDate || r.detected_time}
-
-                  </span>
-
-                  <span className="text-[#F43F5E] font-bold text-[10.5px] block mt-0.5 leading-tight">
-
-                    {r.history?.lastLiters ? `-${Math.abs(r.history.lastLiters)} L` : `-${r.siphoned_liters || 0} L`}
-
-                  </span>
-
-                </div>
-
-              )
-
             }
+
 
           ],
 
