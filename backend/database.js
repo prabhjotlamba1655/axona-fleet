@@ -1032,7 +1032,7 @@ function seedDataIfEmpty() {
         type: 'REFUEL_SUCCESS',
         severity: 'LOW',
         title: 'Refuelling Completed Alert',
-        message: 'Tank refuel detected: +220.0 Liters added at IOCL Mega Point Vijayawada. Sensor rise matching expected volume.',
+        message: 'Refuelling detected! Your vehicle has added 220 litres of fuel at IOCL Mega Point Vijayawada, at 06:30 AM.',
         metric_value: '+220.0 Liters Sensor Rise',
         location: 'IOCL Highway Station Vijayawada',
         timestamp: '06:30 AM',

@@ -232,9 +232,9 @@ const RAW_INCIDENTS = [
     alert_type: 'REFUEL_DONE',
     vehicle_id: 'VH-102',
     time: '08:30 AM',
-    location: 'BPCL COCO Plaza Hub, Delhi-Jaipur Expy KM 84',
+    location: 'BPCL COCO Plaza Hub, Delhi-Jaipur Expressway (KM 84)',
     metric: '+380.0 Liters Added (₹35,720)',
-    details: 'Digital capacitive sensor recorded consistent volume rise matching standard bunk flow rate. Verified refueling slip.',
+    details: 'Refuelling detected! Your vehicle has added 380 litres of fuel at BPCL COCO Plaza Hub, Delhi-Jaipur Expressway (KM 84), at 08:30 AM.',
     impact_inr: 0,
     status: 'RESOLVED'
   },
@@ -245,7 +245,7 @@ const RAW_INCIDENTS = [
     time: '06:30 AM',
     location: 'IOCL Highway Station, Vijayawada',
     metric: '+370.0 Liters Added (₹34,780)',
-    details: 'Refueling completed successfully at highway fleet fuel outlet. Sensor calibrated rise confirmed with zero air-lock anomaly.',
+    details: 'Refuelling detected! Your vehicle has added 370 litres of fuel at IOCL Highway Station, Vijayawada, at 06:30 AM.',
     impact_inr: 0,
     status: 'RESOLVED'
   },
@@ -1718,6 +1718,17 @@ export default function AlertReportDashboard({ onReturnHome }) {
                           const match = (inc.metric || inc.details).match(/([\d.]+)[\s]*L/i);
                           const qty = match ? match[1] : '28.5';
                           return `Sudden drop of ${qty}L detected in Fuel Tank.`;
+                        })()
+                      : (inc.alert_type === 'REFUEL_DONE' || inc.alert_type === 'REFUEL_SUCCESS')
+                      ? (() => {
+                          if (inc.id === 'ALT-1013' || (inc.location && inc.location.includes('Delhi-Jaipur'))) {
+                            return 'Refuelling detected! Your vehicle has added 380 litres of fuel at BPCL COCO Plaza Hub, Delhi-Jaipur Expressway (KM 84), at 08:30 AM.';
+                          }
+                          const match = (inc.metric || inc.details).match(/([\d.]+)[\s]*L/i);
+                          const qty = match ? Math.round(parseFloat(match[1])) : '370';
+                          const loc = inc.location || 'Highway Fuel Station';
+                          const tm = inc.time || '08:30 AM';
+                          return `Refuelling detected! Your vehicle has added ${qty} litres of fuel at ${loc}, at ${tm}.`;
                         })()
                       : inc.details
                     }
