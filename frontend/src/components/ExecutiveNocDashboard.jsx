@@ -10672,7 +10672,7 @@ export default function ExecutiveNocDashboard({
 
               <span className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'} font-['Chakra_Petch']`}>
 
-                Chronological Alerts
+                Alerts
 
               </span>
 
@@ -10706,13 +10706,13 @@ export default function ExecutiveNocDashboard({
 
               }`}
 
-              title="Open Full Cross-Tabulated Alert & Report Audit Dashboard"
+              title="Click for Reports - Open Full Cross-Tabulated Alert & Report Audit Dashboard"
 
             >
 
               <Layers size={11} />
 
-              <span>Matrix ↗</span>
+              <span>Click for Reports ↗</span>
 
             </button>
 
