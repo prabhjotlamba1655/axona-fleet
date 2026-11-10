@@ -614,7 +614,7 @@ const RAW_INCIDENTS = [
     time: '09:30 AM',
     location: 'Samruddhi Expressway Rest Plaza',
     metric: 'Halted for 2h 45m (Ignition OFF)',
-    details: 'Vehicle ignition is OFF and vehicle stationary for 2h 45m (> 2h threshold). Driver cited puncture repair on rear right dual tires.',
+    details: 'Vehicle ignition is OFF and vehicle stationary for 2h 45m (> 2h threshold).',
     impact_inr: 0,
     status: 'RESOLVED'
   },
@@ -625,7 +625,7 @@ const RAW_INCIDENTS = [
     time: '10:15 AM',
     location: 'Dharuhera Industrial Gate, NH48',
     metric: 'Halted for 3h 10m (Ignition OFF)',
-    details: 'Vehicle ignition is OFF and vehicle stationary for 3h 10m (> 2h threshold). Extended wait at consignee loading ramp due to forklift availability delay.',
+    details: 'Vehicle ignition is OFF and vehicle stationary for 3h 10m (> 2h threshold).',
     impact_inr: 0,
     status: 'ACKNOWLEDGED'
   },
@@ -636,7 +636,7 @@ const RAW_INCIDENTS = [
     time: '11:25 AM',
     location: 'Krishnagiri Border Checkpost',
     metric: 'Halted for 2h 20m (Ignition OFF)',
-    details: 'Vehicle ignition is OFF and vehicle stationary for 2h 20m (> 2h threshold). State border transit document verification line. Departure resumed.',
+    details: 'Vehicle ignition is OFF and vehicle stationary for 2h 20m (> 2h threshold).',
     impact_inr: 0,
     status: 'RESOLVED'
   },
@@ -647,7 +647,7 @@ const RAW_INCIDENTS = [
     time: '08:40 AM',
     location: 'Dankuni Toll Approach Staging Line',
     metric: 'Halted for 2h 55m (Ignition OFF)',
-    details: 'Vehicle ignition is OFF and vehicle stationary for 2h 55m (> 2h threshold). Truck stationary in queue awaiting heavy cargo entry window.',
+    details: 'Vehicle ignition is OFF and vehicle stationary for 2h 55m (> 2h threshold).',
     impact_inr: 0,
     status: 'PENDING'
   },
@@ -1750,6 +1750,11 @@ export default function AlertReportDashboard({ onReturnHome }) {
                       ? `Night Parking Breach detected! Your vehicle number ${vehicleReg} is parked outside the approved parking zone during designated night hours. Please take necessary action to ensure vehicle safety.`
                       : (inc.alert_type === 'TOWING' || inc.alert_type === 'TOWING_ALERT')
                       ? `Towing Alert! Unauthorised vehicle movement detected while the ignition is OFF. Please verify the vehicle's location and check for possible towing or unauthorised movement.`
+                      : (inc.alert_type === 'EXCESSIVE_STOPPAGE' || inc.alert_type === 'STOPPAGE')
+                      ? (() => {
+                          const parts = (inc.details || '').split('. ');
+                          return parts.length > 1 ? parts[0] + '.' : inc.details;
+                        })()
                       : inc.details
                     }
                   </p>
