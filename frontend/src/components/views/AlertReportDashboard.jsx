@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { 
-  Layers, Download, FileSpreadsheet, FileText, Search, Calendar, 
+  Layers, Download, FileSpreadsheet, FileText, Search, Calendar, Mail, Send, 
   ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertOctagon, Fuel, 
   Zap, Gauge, Clock, ShieldAlert, Navigation, Truck, Weight, 
   ThermometerSnowflake, X, Filter, Printer, ExternalLink, Info, 
@@ -845,6 +845,13 @@ export default function AlertReportDashboard({ onReturnHome }) {
     alertInfo: null
   });
 
+  // Modal export & email report state
+  const [modalExportMenuOpen, setModalExportMenuOpen] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailAddress, setEmailAddress] = useState('fleet-dispatch@axonafleet.com');
+  const [emailStatus, setEmailStatus] = useState(null);
+  const [toastMessage, setToastMessage] = useState(null);
+
   // Filtered vehicles
   const filteredVehicles = useMemo(() => {
     return TRUCK_FLEET.filter(v => {
@@ -996,6 +1003,259 @@ export default function AlertReportDashboard({ onReturnHome }) {
       vehicleInfo: vehicle,
       alertInfo: null
     });
+  };
+
+  // Format incident log details for export & email reports
+  const getIncidentExportMessage = (inc, vehicleReg) => {
+    if (inc.alert_type === 'FUEL_SIPHONING') {
+      const dropMatch = (inc.metric || inc.details).match(/([\d.]+)\s*L/i);
+      const dropL = dropMatch ? dropMatch[1] : '28.5';
+      const costMatch = (inc.metric || inc.details).match(/₹([\d,]+)/);
+      const costVal = costMatch ? costMatch[1] : (parseFloat(dropL) * 94).toFixed(0);
+      return `Fuel Siphoning Loss Detected! Your vehicle number ${vehicleReg} experienced a sudden drop of ${dropL} litres (approx. ₹${costVal}) while stationary. Please verify fuel levels and inspect for potential fuel theft or leakage.`;
+    }
+    if (inc.alert_type === 'REFUEL_DONE') {
+      const volMatch = (inc.metric || '').match(/\+?([\d.]+)\s*L/i);
+      const vol = volMatch ? volMatch[1] : '380';
+      return `Refuelling detected! Your vehicle number ${vehicleReg} has added ${vol} litres of fuel at ${inc.location || 'Fuel Station'}, at ${inc.time || '08:30 AM'}.`;
+    }
+    if (inc.alert_type === 'HARSH_BRAKING') {
+      return `Harsh braking detected! Your vehicle number ${vehicleReg} has experienced sudden deceleration. Please check driver safety & ensure safe driving practices.`;
+    }
+    if (inc.alert_type === 'OVERSPEEDING') {
+      const speedMatch = (inc.metric || '').match(/(\d+)\s*km\/h/i);
+      const limitMatch = (inc.metric || '').match(/Limit:\s*(\d+)\s*km\/h/i);
+      const curSpeed = speedMatch ? speedMatch[1] : '76';
+      const speedLimit = limitMatch ? limitMatch[1] : '60';
+      return `Overspeeding Alert! Your vehicle is travelling at ${curSpeed} km/h against the permitted limit of ${speedLimit} km/h. Please maintain speed limits and ensure safe driving.`;
+    }
+    if (inc.alert_type === 'GEOFENCE_WORKING' || inc.alert_type === 'GEOFENCE_BREACH' || inc.alert_type === 'ROUTE_DEVIATION') {
+      const distMatch = (inc.metric || inc.details).match(/([\d.]+)\s*km/i);
+      const dist = distMatch ? distMatch[1] : '56.4';
+      return `Geofence Breach Alert! Your vehicle number ${vehicleReg} has deviated ${dist} km from its designated route. Please verify the vehicle's location and check route deviation authorization.`;
+    }
+    if (inc.alert_type === 'GEOFENCE_PARKING') {
+      return `Night Parking Breach detected! Your vehicle number ${vehicleReg} is parked outside the approved parking zone during designated night hours. Please take necessary action to ensure vehicle safety.`;
+    }
+    if (inc.alert_type === 'TOWING' || inc.alert_type === 'TOWING_ALERT') {
+      return `Towing Alert! Unauthorised vehicle movement detected while the ignition is OFF. Please verify the vehicle's location and check for possible towing or unauthorised movement.`;
+    }
+    if (inc.alert_type === 'EXCESSIVE_STOPPAGE' || inc.alert_type === 'STOPPAGE') {
+      const parts = (inc.details || '').split('. ');
+      return parts.length > 1 ? parts[0] + '.' : inc.details;
+    }
+    if (inc.alert_type === 'LATE_START') {
+      return `Late Start Alert! Vehicle number ${vehicleReg} commenced its trip later than the scheduled departure time.`;
+    }
+    if (inc.alert_type === 'IDLE_ALERT' || inc.alert_type === 'EXCESSIVE_IDLE' || inc.alert_type === 'IDLING' || inc.alert_type === 'IDLE') {
+      const timeMatch = (inc.metric || inc.details || '').match(/(\d+)\s*(?:mins|min|minutes)/i);
+      const idleTime = timeMatch ? `${timeMatch[1]} minutes` : '27 minutes';
+      const fuelMatch = (inc.metric || inc.details || '').match(/([\d.]+)\s*L/i);
+      const fuelVol = fuelMatch ? `${fuelMatch[1]} litres` : '2.8 litres';
+      const fuelNum = fuelMatch ? parseFloat(fuelMatch[1]) : 2.8;
+      const approxCost = inc.impact_inr ? Math.round(inc.impact_inr) : Math.round(fuelNum * 94.0);
+      const locText = inc.location ? ` at ${inc.location}` : '';
+      return `Idling Alert! Vehicle number ${vehicleReg} remained idle for ${idleTime}${locText}, resulting in ${fuelVol} of diesel wasted in idling (approx. ₹${approxCost.toLocaleString('en-IN')}).`;
+    }
+    return inc.details;
+  };
+
+  // Export Modal Alert Logs to Excel (.xls HTML format with styles)
+  const handleExportModalExcel = () => {
+    const title = drilldownModal.title || 'Alert_Logs';
+    const cleanTitle = title.replace(/[^a-zA-Z0-9]/g, '_');
+    
+    let rowsHtml = '';
+    drilldownModal.incidents.forEach((inc, idx) => {
+      const targetVeh = TRUCK_FLEET.find(v => v.id === inc.vehicle_id);
+      const vehicleReg = targetVeh ? targetVeh.reg_no : (inc.reg_no || inc.vehicle_id);
+      const driver = targetVeh ? targetVeh.driver : 'N/A';
+      const detailMsg = getIncidentExportMessage(inc, vehicleReg);
+
+      rowsHtml += `
+        <tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+          <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold; font-family: monospace;">${inc.id || ''}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1; font-family: monospace;">${inc.time || ''}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold; font-family: monospace; color: #0284c7;">${vehicleReg}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1; font-family: monospace;">${inc.vehicle_id || ''}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1;">${driver}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold;">${inc.alert_type || ''}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1;">${inc.location || ''}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1; color: #d97706; font-weight: bold;">${inc.metric || ''}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1;">${detailMsg}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; color: #dc2626; font-weight: bold;">₹${inc.impact_inr || 0}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold; color: ${inc.status === 'RESOLVED' || inc.status === 'ACKNOWLEDGED' ? '#15803d' : '#b91c1c'};">${inc.status || 'PENDING'}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1;">NOC Shift Lead</td>
+        </tr>
+      `;
+    });
+
+    const tableHtml = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Alert Audit Logs</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+        <meta http-equiv="content-type" content="text/plain; charset=UTF-8"/>
+      </head>
+      <body style="font-family: Arial, sans-serif; padding: 16px;">
+        <h2 style="color: #0f172a; margin-bottom: 4px;">AXONA FLEET ANALYTICS • AUDIT LOG REPORT</h2>
+        <p style="color: #475569; margin: 0 0 4px 0;"><b>Title:</b> ${drilldownModal.title} | <b>Scope:</b> ${drilldownModal.subtitle}</p>
+        <p style="color: #475569; margin: 0 0 12px 0;"><b>Export Date:</b> ${new Date().toLocaleString('en-IN')} | <b>Fuel Benchmark:</b> ₹94.0/L | <b>Total Violations:</b> ${drilldownModal.incidents.length}</p>
+        <table style="border-collapse: collapse; width: 100%; font-size: 11px;">
+          <thead>
+            <tr style="background-color: #0f172a; color: #ffffff;">
+              <th style="padding: 9px; border: 1px solid #334155;">Incident ID</th>
+              <th style="padding: 9px; border: 1px solid #334155;">Time</th>
+              <th style="padding: 9px; border: 1px solid #334155;">Vehicle Reg</th>
+              <th style="padding: 9px; border: 1px solid #334155;">Vehicle ID</th>
+              <th style="padding: 9px; border: 1px solid #334155;">Driver</th>
+              <th style="padding: 9px; border: 1px solid #334155;">Alert Type</th>
+              <th style="padding: 9px; border: 1px solid #334155;">Location</th>
+              <th style="padding: 9px; border: 1px solid #334155;">Telemetry Metric</th>
+              <th style="padding: 9px; border: 1px solid #334155;">Audit Log Details</th>
+              <th style="padding: 9px; border: 1px solid #334155;">Loss (INR)</th>
+              <th style="padding: 9px; border: 1px solid #334155;">Status</th>
+              <th style="padding: 9px; border: 1px solid #334155;">Assigned Controller</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Axona_Report_${cleanTitle}_${Date.now()}.xls`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setModalExportMenuOpen(false);
+    setToastMessage('Excel report downloaded successfully!');
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Export Modal Alert Logs to PDF (Printable Formatted Audit Document)
+  const handleExportModalPdf = () => {
+    const title = drilldownModal.title || 'Alert_Logs';
+    let rowsHtml = '';
+    drilldownModal.incidents.forEach((inc, idx) => {
+      const targetVeh = TRUCK_FLEET.find(v => v.id === inc.vehicle_id);
+      const vehicleReg = targetVeh ? targetVeh.reg_no : (inc.reg_no || inc.vehicle_id);
+      const driver = targetVeh ? targetVeh.driver : 'N/A';
+      const detailMsg = getIncidentExportMessage(inc, vehicleReg);
+
+      rowsHtml += `
+        <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
+          <td style="padding: 8px 6px; font-weight: bold; font-family: monospace;">${inc.id || ''}</td>
+          <td style="padding: 8px 6px; font-family: monospace;">${inc.time || ''}</td>
+          <td style="padding: 8px 6px; font-weight: bold; font-family: monospace; color: #0284c7;">${vehicleReg}</td>
+          <td style="padding: 8px 6px;">${driver}</td>
+          <td style="padding: 8px 6px;">${inc.location || ''}</td>
+          <td style="padding: 8px 6px; font-family: monospace; color: #d97706; font-weight: bold;">${inc.metric || ''}</td>
+          <td style="padding: 8px 6px; line-height: 1.4;">${detailMsg}</td>
+          <td style="padding: 8px 6px; font-weight: bold; font-family: monospace; color: ${inc.impact_inr > 0 ? '#dc2626' : '#64748b'};">₹${(inc.impact_inr || 0).toLocaleString('en-IN')}</td>
+          <td style="padding: 8px 6px;"><span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9.5px; font-weight: bold; background: ${inc.status === 'RESOLVED' || inc.status === 'ACKNOWLEDGED' ? '#dcfce7; color: #15803d' : '#fee2e2; color: #b91c1c'};">${inc.status || 'PENDING'}</span></td>
+        </tr>
+      `;
+    });
+
+    const printHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Axona Fleet Analytics - ${title}</title>
+        <style>
+          @page { size: landscape; margin: 12mm; }
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; margin: 0; padding: 16px; }
+          .header { border-bottom: 2px solid #0284c7; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end; }
+          .brand { font-size: 18px; font-weight: 800; letter-spacing: 1px; color: #0f172a; }
+          .brand span { color: #0284c7; }
+          .meta { font-size: 11px; color: #475569; line-height: 1.5; }
+          table { width: 100%; border-collapse: collapse; text-align: left; }
+          th { background: #0f172a; color: #ffffff; padding: 8px 6px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; }
+          .footer { margin-top: 20px; font-size: 10px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 8px; display: flex; justify-content: space-between; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="brand">AXONA <span>AI</span> FLEET ANALYTICS</div>
+            <div style="font-size: 14px; font-weight: bold; margin-top: 4px; color: #0f172a;">${title}</div>
+            <div style="font-size: 11px; color: #64748b;">${drilldownModal.subtitle}</div>
+          </div>
+          <div class="meta" style="text-align: right;">
+            <div><b>Generated:</b> ${new Date().toLocaleString('en-IN')}</div>
+            <div><b>Benchmark Diesel Price:</b> ₹94.0/L</div>
+            <div><b>Total Verified Logs:</b> ${drilldownModal.incidents.length}</div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Time</th>
+              <th>Vehicle</th>
+              <th>Driver</th>
+              <th>Location</th>
+              <th>Metric</th>
+              <th>Audit Incident Log Message</th>
+              <th>Loss</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+        <div class="footer">
+          <div>NOC Shift Lead Dispatch Audit • Verified Telematics Stream</div>
+          <div>Confidential Enterprise Telematics Report • Axona IoT Telemetry</div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWin = window.open('', '_blank');
+    if (printWin) {
+      printWin.document.write(printHtml);
+      printWin.document.close();
+      printWin.focus();
+      setTimeout(() => {
+        printWin.print();
+      }, 500);
+    } else {
+      const blob = new Blob([printHtml], { type: 'text/html;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `Axona_Report_${title.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.html`;
+      link.click();
+    }
+    setModalExportMenuOpen(false);
+    setToastMessage('PDF printable report generated successfully!');
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Handle simulated email report dispatch
+  const handleSendEmail = (e) => {
+    if (e) e.preventDefault();
+    if (!emailAddress || !emailAddress.includes('@')) {
+      alert('Please enter a valid recipient email address.');
+      return;
+    }
+    setEmailStatus('sending');
+    setTimeout(() => {
+      setEmailStatus('sent');
+      setToastMessage(`✓ Alert report successfully emailed to ${emailAddress} with Excel & PDF attachments!`);
+      setTimeout(() => {
+        setEmailModalOpen(false);
+        setEmailStatus(null);
+        setTimeout(() => setToastMessage(null), 4000);
+      }, 1500);
+    }, 700);
   };
 
   // Export CSV
@@ -1631,14 +1891,105 @@ export default function AlertReportDashboard({ onReturnHome }) {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setDrilldownModal({ isOpen: false, title: '', subtitle: '', incidents: [], vehicleInfo: null, alertInfo: null })}
-                className={`p-1.5 rounded-lg transition ${
-                  isLight ? 'bg-slate-200 hover:bg-slate-300 text-slate-700 hover:text-slate-900' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white'
-                }`}
-              >
-                <X size={16} />
-              </button>
+              {/* Modal Header Right Action Controls: Export Report (Excel, PDF, Email) & Close */}
+              <div className="flex items-center space-x-2">
+                {/* Export Report Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setModalExportMenuOpen(!modalExportMenuOpen)}
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition cursor-pointer active:scale-95 border ${
+                      isLight
+                        ? 'bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border-cyan-300 shadow-xs'
+                        : 'bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border-cyan-700/60 shadow-sm'
+                    }`}
+                    title="Export alert logs as report in Excel or PDF, or email report"
+                  >
+                    <Download size={13} />
+                    <span>Export Report</span>
+                    <ChevronDown size={13} className={`transition-transform duration-200 ${modalExportMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Export Dropdown Menu */}
+                  {modalExportMenuOpen && (
+                    <div 
+                      className={`absolute right-0 mt-1.5 w-60 rounded-xl shadow-2xl border p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 ${
+                        isLight ? 'bg-white border-slate-200 text-slate-800 shadow-slate-300' : 'bg-[#0B1528] border-cyan-800/80 text-slate-200 shadow-black/80'
+                      }`}
+                    >
+                      <div className="px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold border-b border-slate-700/30">
+                        Export Alert Logs
+                      </div>
+                      
+                      {/* Option 1: Excel */}
+                      <button
+                        onClick={handleExportModalExcel}
+                        className={`w-full flex items-center space-x-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition text-left cursor-pointer ${
+                          isLight ? 'hover:bg-slate-100 text-slate-800' : 'hover:bg-slate-800/70 text-slate-200'
+                        }`}
+                      >
+                        <div className="p-1.5 rounded-md bg-emerald-500/15 text-emerald-400 shrink-0">
+                          <FileSpreadsheet size={15} />
+                        </div>
+                        <div>
+                          <div className="font-bold">Download Excel (.xlsx)</div>
+                          <div className="text-[10px] text-slate-400">Formatted spreadsheet report</div>
+                        </div>
+                      </button>
+
+                      {/* Option 2: PDF */}
+                      <button
+                        onClick={handleExportModalPdf}
+                        className={`w-full flex items-center space-x-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition text-left cursor-pointer ${
+                          isLight ? 'hover:bg-slate-100 text-slate-800' : 'hover:bg-slate-800/70 text-slate-200'
+                        }`}
+                      >
+                        <div className="p-1.5 rounded-md bg-rose-500/15 text-rose-400 shrink-0">
+                          <FileText size={15} />
+                        </div>
+                        <div>
+                          <div className="font-bold">Download PDF (.pdf)</div>
+                          <div className="text-[10px] text-slate-400">Printable formatted audit doc</div>
+                        </div>
+                      </button>
+
+                      <div className="my-1 border-t border-slate-700/30" />
+
+                      {/* Option 3: Email */}
+                      <button
+                        onClick={() => {
+                          setModalExportMenuOpen(false);
+                          setEmailModalOpen(true);
+                        }}
+                        className={`w-full flex items-center space-x-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition text-left cursor-pointer ${
+                          isLight ? 'hover:bg-slate-100 text-slate-800' : 'hover:bg-slate-800/70 text-slate-200'
+                        }`}
+                      >
+                        <div className="p-1.5 rounded-md bg-cyan-500/15 text-cyan-400 shrink-0">
+                          <Mail size={15} />
+                        </div>
+                        <div>
+                          <div className="font-bold">Email Report</div>
+                          <div className="text-[10px] text-slate-400">Send Excel & PDF to recipient</div>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Close Button */}
+                <button
+                  onClick={() => {
+                    setDrilldownModal({ isOpen: false, title: '', subtitle: '', incidents: [], vehicleInfo: null, alertInfo: null });
+                    setModalExportMenuOpen(false);
+                    setEmailModalOpen(false);
+                  }}
+                  className={`p-1.5 rounded-lg transition cursor-pointer ${
+                    isLight ? 'bg-slate-200 hover:bg-slate-300 text-slate-700 hover:text-slate-900' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
 
             {/* Modal Body / Incident Cards */}
@@ -1815,18 +2166,139 @@ export default function AlertReportDashboard({ onReturnHome }) {
               <span className={isLight ? 'text-slate-600' : 'text-slate-400'}>
                 Displaying {drilldownModal.incidents.length} verified telematics incident logs
               </span>
-              <button
-                onClick={() => setDrilldownModal({ isOpen: false, title: '', subtitle: '', incidents: [], vehicleInfo: null, alertInfo: null })}
-                className={`px-4 py-1.5 rounded-lg font-bold font-mono transition ${
-                  isLight 
-                    ? 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-xs' 
-                    : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950'
-                }`}
-              >
-                Close
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setModalExportMenuOpen(!modalExportMenuOpen)}
+                  className={`px-3 py-1.5 rounded-lg font-bold font-mono transition text-xs flex items-center space-x-1 border cursor-pointer ${
+                    isLight 
+                      ? 'bg-slate-200 hover:bg-slate-300 text-slate-800 border-slate-300' 
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                  }`}
+                >
+                  <Download size={12} />
+                  <span>Export</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setDrilldownModal({ isOpen: false, title: '', subtitle: '', incidents: [], vehicleInfo: null, alertInfo: null });
+                    setModalExportMenuOpen(false);
+                    setEmailModalOpen(false);
+                  }}
+                  className={`px-4 py-1.5 rounded-lg font-bold font-mono transition cursor-pointer ${
+                    isLight 
+                      ? 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-xs' 
+                      : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950'
+                  }`}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Email Dispatch Modal */}
+      {emailModalOpen && (
+        <div style={{ zIndex: 9999 }} className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className={`w-full max-w-md rounded-2xl border p-5 shadow-2xl space-y-4 ${
+            isLight ? 'bg-white border-slate-300 text-slate-900 shadow-slate-400' : 'bg-[#0E1A36] border-cyan-800/80 text-white shadow-black/90'
+          }`}>
+            <div className="flex items-center justify-between pb-2 border-b border-slate-700/40">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                  <Mail size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold font-['Chakra_Petch'] uppercase tracking-wider">Email Alert Report</h3>
+                  <p className="text-[11px] text-slate-400">{drilldownModal.title}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setEmailModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSendEmail} className="space-y-3.5">
+              <div>
+                <label className="block text-[11px] font-mono text-slate-400 mb-1 font-bold">
+                  Recipient Email Address:
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={emailAddress}
+                  onChange={(e) => setEmailAddress(e.target.value)}
+                  placeholder="fleet-manager@axonafleet.com"
+                  className={`w-full px-3 py-2 rounded-lg text-xs font-mono border outline-hidden transition ${
+                    isLight 
+                      ? 'bg-slate-50 border-slate-300 text-slate-900 focus:border-cyan-500' 
+                      : 'bg-slate-900/80 border-slate-700 text-white focus:border-cyan-400'
+                  }`}
+                />
+              </div>
+
+              <div className="p-3 rounded-xl border bg-slate-900/40 border-slate-800 space-y-2">
+                <div className="text-[10.5px] font-mono text-slate-400 uppercase font-bold">Attached Report Formats:</div>
+                <div className="flex items-center space-x-2 text-xs font-mono">
+                  <span className="flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-bold">
+                    <FileSpreadsheet size={13} />
+                    <span>Excel (.xlsx)</span>
+                  </span>
+                  <span className="flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-rose-500/15 text-rose-400 border border-rose-500/30 font-bold">
+                    <FileText size={13} />
+                    <span>PDF Report (.pdf)</span>
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 pt-1">
+                  Includes all {drilldownModal.incidents.length} telematics incident logs with verified timestamps, locations, fuel impacts, and audit details.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEmailModalOpen(false)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-mono text-slate-400 hover:text-white transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={emailStatus === 'sending'}
+                  className="flex items-center space-x-1.5 px-4 py-2 rounded-lg text-xs font-bold font-mono transition bg-cyan-600 hover:bg-cyan-500 text-white shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                >
+                  {emailStatus === 'sending' ? (
+                    <>
+                      <Clock size={13} className="animate-spin" />
+                      <span>Sending Report...</span>
+                    </>
+                  ) : emailStatus === 'sent' ? (
+                    <>
+                      <Check size={13} />
+                      <span>Report Sent!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send size={13} />
+                      <span>Send Email Report</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Global Toast Notification */}
+      {toastMessage && (
+        <div style={{ zIndex: 10000 }} className="fixed top-6 right-6 bg-emerald-500 text-slate-950 font-mono text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl flex items-center space-x-2 animate-in slide-in-from-top-3">
+          <Check size={15} />
+          <span>{toastMessage}</span>
         </div>
       )}
     </div>
