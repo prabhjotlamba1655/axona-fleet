@@ -1522,7 +1522,6 @@ export default function ExecutiveNocDashboard({
             render: (v) => (
               <div className="text-left">
                 <span className="font-mono text-emerald-400 text-xs block">{v.workingHours} hrs</span>
-                <span className="text-[9.5px] text-emerald-500/90 block font-mono font-medium">On-Road Active</span>
               </div>
             )
           },
@@ -1533,7 +1532,6 @@ export default function ExecutiveNocDashboard({
             render: (v) => (
               <div className="text-left">
                 <span className="font-mono text-amber-400 text-xs block">{v.idleHours} hrs</span>
-                <span className="text-[9.5px] text-amber-500/90 block font-mono font-medium">Engine Idling</span>
               </div>
             )
           },
@@ -1544,7 +1542,6 @@ export default function ExecutiveNocDashboard({
             render: (v) => (
               <div className="text-left">
                 <span className="font-mono text-rose-400 text-xs block">{v.stoppedHours} hrs</span>
-                <span className="text-[9.5px] text-rose-500/90 block font-mono font-medium">Halt / Inactive</span>
               </div>
             )
           },
