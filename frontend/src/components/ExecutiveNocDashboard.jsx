@@ -6827,42 +6827,7 @@ export default function ExecutiveNocDashboard({
                   </div>
                 </div>
 
-                {/* Table Horizontal Scroller controller next to search bar as per Image 2 */}
                 <div className="flex items-center space-x-2">
-                  {!['REFUEL_REQUIRED', 'IDLING_LOSS', 'HIGH_CPH', 'RTO_COMPLIANCE'].includes(drilldownData?.boxKey) && (
-                  <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-mono shrink-0 ${
-                    isLight ? 'bg-white border-slate-300 text-slate-800 shadow-xs' : 'bg-[#040814] border-slate-700/80 text-cyan-300 shadow-inner'
-                  }`} title="Table Horizontal Scroller">
-                    <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider hidden md:inline">
-                      Scroll Table:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => slideSheet('left')}
-                      className="px-2 py-0.5 rounded bg-[#09152B] hover:bg-[#0E2247] text-cyan-300 border border-cyan-700/80 hover:border-cyan-400 transition text-[11px] font-bold active:scale-95 cursor-pointer shadow-xs"
-                      title="Scroll table left"
-                    >
-                      ◀
-                    </button>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={sheetScrollPercent}
-                      onChange={handleSheetSliderChange}
-                      className="w-16 sm:w-24 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
-                      title="Slide to scroll table horizontally"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => slideSheet('right')}
-                      className="px-2 py-0.5 rounded bg-[#09152B] hover:bg-[#0E2247] text-cyan-300 border border-cyan-700/80 hover:border-cyan-400 transition text-[11px] font-bold active:scale-95 cursor-pointer shadow-xs"
-                      title="Scroll table right"
-                    >
-                      ▶
-                    </button>
-                  </div>
-                  )}
                   {/* Active Service Category Filter Chip */}
                   {drilldownData?.boxKey === 'SERVICE_DUE' && serviceFilter !== 'ALL' && (
                     <div className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-mono select-none ${
