@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { 
-  MapPin, ShieldAlert, CheckCircle2, AlertTriangle, Navigation, 
+  MapPin, PauseCircle, PlayCircle, ArrowRightLeft, Milestone, Clock, ShieldAlert, CheckCircle2, AlertTriangle, Navigation, 
   User, Check, RefreshCw, Maximize2, Minimize2, ThermometerSnowflake, 
   Weight, Activity, Bell, Filter, Search, Layers, Compass,
   Truck, ArrowRight, ShieldCheck, Radio, X, Route, ChevronUp, ChevronDown,
@@ -58,7 +58,8 @@ export default function Screen2LiveMapTracking({ isExpanded = false, onToggleExp
   const [journeyTimeline, setJourneyTimeline] = useState(null);
   const [driverIntelligence, setDriverIntelligence] = useState(null);
   const [activeVehicleTab, setActiveVehicleTab] = useState('intelligence'); // 'intelligence' | 'timeline'
-  const [showTimelineDrawer, setShowTimelineDrawer] = useState(false); // Vertical 00:00h Route Timeline Drawer
+  const [showTimelineDrawer, setShowTimelineDrawer] = useState(true); // Route Details Box (Since 00.00 hrs today) - Open by default
+  const [drawerSide, setDrawerSide] = useState('right'); // 'right' | 'left'
   const [consoleMinimized, setConsoleMinimized] = useState(false); // Minimize/Expand 8-Box NOC Cockpit
   const [customRouteInputs, setCustomRouteInputs] = useState({ start: '', end: '' });
   const [routeUpdateSuccess, setRouteUpdateSuccess] = useState(false);
@@ -168,8 +169,14 @@ export default function Screen2LiveMapTracking({ isExpanded = false, onToggleExp
 
     // Pan map smoothly to selected vehicle
     const map = mapInstanceRef.current;
-    if (map && selectedVehicle.current_lat && selectedVehicle.current_lng) {
-      map.setView([Number(selectedVehicle.current_lat), Number(selectedVehicle.current_lng)], 9, { animate: true });
+    if (map) {
+      const pathPts = journey?.pathCoords || [];
+      if (pathPts.length > 1) {
+        const bounds = L.latLngBounds(pathPts);
+        map.fitBounds(bounds, { padding: [60, 60] });
+      } else if (selectedVehicle.current_lat && selectedVehicle.current_lng) {
+        map.setView([Number(selectedVehicle.current_lat), Number(selectedVehicle.current_lng)], 9, { animate: true });
+      }
     }
   }, [selectedVehicle]);
 
@@ -384,6 +391,7 @@ export default function Screen2LiveMapTracking({ isExpanded = false, onToggleExp
           setSearchQuery(v.reg_no);
           setLeftPanelCollapsed(false);
           setConsoleMinimized(false);
+          setShowTimelineDrawer(true);
         });
 
       layersRef.current.vehicleMarkers[v.id || v.reg_no] = marker;
@@ -809,6 +817,7 @@ export default function Screen2LiveMapTracking({ isExpanded = false, onToggleExp
                             setSearchQuery(v.reg_no);
                             setVehicleDropdownOpen(false);
                             setConsoleMinimized(false);
+                            setShowTimelineDrawer(true);
                           }}
                           className={`px-3 py-2.5 cursor-pointer hover:bg-[#0E2042] transition flex items-center justify-between ${
                             isSel ? 'bg-[#0E264E] border-l-4 border-cyan-400' : ''
@@ -937,60 +946,116 @@ export default function Screen2LiveMapTracking({ isExpanded = false, onToggleExp
         {/* ------------------------------------------------------------- */}
         {selectedVehicle && journeyTimeline && driverIntelligence ? (
           <>
-            {/* OPTIONAL: 00:00 hrs Vertical Route Timeline Drawer (Left-Side) */}
-            {showTimelineDrawer && (
-              <div className="absolute top-3 left-3 bottom-[275px] w-80 sm:w-88 z-40 bg-[#070E24]/95 backdrop-blur-2xl border-2 border-cyan-500 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden text-slate-100 font-mono text-[9.5px] pointer-events-auto animate-in fade-in slide-in-from-left-4 duration-200">
-                {/* Timeline Header */}
-                <div className="px-2.5 py-1.5 bg-[#0A1635] border-b border-cyan-700/60 flex items-center justify-between shrink-0">
-                  <div className="flex items-center space-x-1.5">
-                    {/* Close Drawer Button on Left Top Corner */}
+            {/* ============================================================= */}
+            {/* VERTICAL COLUMN ROUTE DETAILS BOX (SINCE 00.00 HRS TODAY)     */}
+            {/* Shows Starting point & time, Stoppage durations, Current loc   */}
+            {/* ============================================================= */}
+            {showTimelineDrawer ? (
+              <div 
+                style={{ zIndex: 1200, maxHeight: 'calc(100vh - 300px)' }}
+                className={`absolute top-3 ${drawerSide === 'right' ? 'right-3' : 'left-3'} bottom-[245px] w-84 sm:w-92 bg-[#060D20]/98 backdrop-blur-2xl border-2 border-cyan-500/90 rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden text-slate-100 font-mono text-[9.5px] pointer-events-auto animate-in fade-in duration-200`}
+              >
+                {/* 1. Header with prominent "SINCE 00.00 HRS TODAY" badge */}
+                <div className="px-3 py-2 bg-gradient-to-r from-[#0A1635] via-[#0E204E] to-[#0A1635] border-b border-cyan-600/60 flex items-center justify-between shrink-0">
+                  <div className="flex items-center space-x-2">
+                    <div className="p-1.5 rounded-lg bg-cyan-950/90 border border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.4)]">
+                      <Route size={14} />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-1.5 flex-wrap gap-y-0.5">
+                        <h3 className="font-['Chakra_Petch'] font-black text-xs uppercase tracking-wider text-white">
+                          ROUTE DETAILS
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full text-[8.5px] font-black bg-cyan-500/25 text-cyan-200 border border-cyan-400/60 uppercase tracking-tight shadow-xs">
+                          Since 00.00 hrs today
+                        </span>
+                      </div>
+                      <p className="text-[9px] text-slate-300 font-sans mt-0.5">
+                        {journeyTimeline.regNo} • <span className="text-cyan-400 font-semibold">{journeyTimeline.model}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-1">
+                    {/* Toggle Dock Side (Left / Right) */}
+                    <button
+                      onClick={() => setDrawerSide(prev => prev === 'left' ? 'right' : 'left')}
+                      className="p-1 rounded-md hover:bg-[#122A5C] text-slate-400 hover:text-cyan-300 transition"
+                      title={`Dock to ${drawerSide === 'left' ? 'Right' : 'Left'} Column`}
+                    >
+                      <ArrowRightLeft size={13} />
+                    </button>
+                    {/* Minimize Button */}
                     <button
                       onClick={() => setShowTimelineDrawer(false)}
-                      className="p-0.5 rounded hover:bg-rose-950 text-slate-400 hover:text-rose-300 transition"
-                      title="Close Timeline Drawer"
+                      className="p-1 rounded-md hover:bg-rose-950/80 text-slate-400 hover:text-rose-300 transition"
+                      title="Minimize Route Details Box"
                     >
-                      <X size={13} className="stroke-[2.5]" />
+                      <Minus size={13} className="stroke-[2.5]" />
                     </button>
-                    <Route size={12} className="text-cyan-400" />
-                    <span className="font-['Chakra_Petch'] font-bold text-[10.5px] uppercase tracking-wider text-cyan-300">
-                      00:00 hrs Route Timeline
-                    </span>
                   </div>
-                  <span className="text-[8px] text-cyan-400/80">Stoppages</span>
                 </div>
 
-                {/* Subheader info */}
-                <div className="px-2.5 py-1 bg-[#050C1F] border-b border-slate-800 flex items-center justify-between text-[8.5px] text-slate-300 shrink-0">
-                  <span>{journeyTimeline.regNo} ({journeyTimeline.vehicleId})</span>
-                  <span className="text-amber-300 font-bold">{journeyTimeline.stoppageCount} Halts</span>
+                {/* Quick Summary Pill Bar */}
+                <div className="px-3 py-1.5 bg-[#030816] border-b border-slate-800 flex items-center justify-between text-[8.5px] text-slate-300 shrink-0">
+                  <span className="flex items-center space-x-1 text-emerald-400 font-bold">
+                    <Clock size={11} />
+                    <span>Since 00.00 hrs</span>
+                  </span>
+                  <span className="text-amber-300 font-bold">
+                    {journeyTimeline.stoppageCount} Halts ({journeyTimeline.totalStoppageMinutes} mins)
+                  </span>
+                  <span className="text-cyan-300 font-bold">
+                    {journeyTimeline.totalDistanceKm} km Travelled
+                  </span>
                 </div>
 
-                {/* Timeline Scroll Area */}
-                <div className="flex-1 overflow-y-auto px-2.5 py-2 space-y-1.5">
-                  <div className="relative pl-4 py-0.5">
-                    {/* Continuous Single Vertical Line */}
-                    <div className="absolute left-1.5 top-1.5 bottom-1.5 w-0.5 bg-gradient-to-b from-emerald-500 via-amber-400 to-cyan-400"></div>
+                {/* Scrollable Content Body */}
+                <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
 
-                    {/* 1. START POINT (Today 00:00 hrs) */}
-                    <div 
-                      onClick={() => {
-                        const map = mapInstanceRef.current;
-                        if (map) map.setView(journeyTimeline.origin.coords, 12, { animate: true });
-                      }}
-                      className="relative mb-2 pl-2.5 py-0.5 rounded hover:bg-[#0C1E40]/60 cursor-pointer transition group"
-                      title="Click to pan to Start Point"
-                    >
-                      <span className="absolute -left-4 top-1.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#030914] shadow-[0_0_6px_#10B981]"></span>
-                      <div className="flex items-center justify-between text-[8.5px]">
-                        <span className="font-bold text-emerald-400 uppercase tracking-wider">Start Point (00:00 hrs)</span>
-                        <span className="text-[8.5px] text-emerald-300 font-semibold">{journeyTimeline.origin.time || '00:00 AM'}</span>
+                  {/* SECTION 1: VEHICLE STARTING POINT AND TIME */}
+                  <div 
+                    onClick={() => {
+                      const map = mapInstanceRef.current;
+                      if (map) map.setView(journeyTimeline.origin.coords, 12, { animate: true });
+                    }}
+                    className="p-2.5 rounded-lg bg-[#07191D]/90 border border-emerald-600/70 hover:border-emerald-400 hover:bg-[#0A262C] cursor-pointer transition shadow-xs group"
+                    title="Click to pan to Start Point on map"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center space-x-1.5 text-emerald-400 font-bold text-[9px] uppercase tracking-wider">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10B981] animate-pulse"></span>
+                        <span>1. Vehicle Starting Point & Time</span>
                       </div>
-                      <div className="font-medium text-slate-200 text-[9.5px] mt-0.5 leading-snug group-hover:text-cyan-300 transition">
-                        {journeyTimeline.origin.name}
-                      </div>
+                      <span className="px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-600 text-[8.5px] font-bold">
+                        {journeyTimeline.origin.time || 'Today 00:00 AM (00.00 hrs)'}
+                      </span>
                     </div>
+                    <div className="text-[10.5px] font-bold text-white group-hover:text-emerald-200 transition">
+                      {journeyTimeline.origin.name}
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-[8px] text-slate-400 pt-1 border-t border-emerald-900/50">
+                      <span>Odometer: {journeyTimeline.origin.odometerKm ? journeyTimeline.origin.odometerKm.toLocaleString('en-IN') + ' km' : '98,450 km'}</span>
+                      <span>Fuel: {journeyTimeline.origin.fuelLiters || 420} L</span>
+                      <span className="text-emerald-400 font-semibold">Start: 00.00 hrs today</span>
+                    </div>
+                  </div>
 
-                    {/* 2. INTERMEDIATE HALTS (> 15 MIN) - SHOWING ONLY HALT DURATION, TIME, AND HALT LOCATION */}
+                  {/* SECTION 2: STOPPAGE TIME DURATION */}
+                  <div className="p-2.5 rounded-lg bg-[#191104]/90 border border-amber-600/70 shadow-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-1.5 text-amber-400 font-bold text-[9px] uppercase tracking-wider">
+                        <PauseCircle size={12} className="text-amber-400" />
+                        <span>2. Stoppage Time Duration</span>
+                      </div>
+                      <span className="px-1.5 py-0.2 rounded bg-amber-950 text-amber-200 border border-amber-600 text-[8.5px] font-bold">
+                        Total: {Math.floor(journeyTimeline.totalStoppageMinutes / 60)}h {journeyTimeline.totalStoppageMinutes % 60}m ({journeyTimeline.totalStoppageMinutes}m)
+                      </span>
+                    </div>
+                    <p className="text-[8.5px] text-slate-400">
+                      Verified vehicle stoppages (&gt; 15 mins) since 00.00 hrs today:
+                    </p>
+
                     {journeyTimeline.stoppages && journeyTimeline.stoppages.map((stop, sIdx) => (
                       <div 
                         key={stop.id || sIdx}
@@ -998,71 +1063,111 @@ export default function Screen2LiveMapTracking({ isExpanded = false, onToggleExp
                           const map = mapInstanceRef.current;
                           if (map) map.setView(stop.coords, 12, { animate: true });
                         }}
-                        className="relative mb-1.5 pl-2.5 py-1 rounded bg-[#120B03]/80 border border-amber-900/60 hover:border-amber-400 hover:bg-[#1C1205] cursor-pointer transition group"
-                        title="Click to pan to Halt Location"
+                        className="p-1.5 rounded bg-[#241707] border border-amber-700/60 hover:border-amber-400 hover:bg-[#332009] cursor-pointer transition group"
+                        title="Click to view stoppage location on map"
                       >
-                        <span className="absolute -left-4 top-1.5 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-[#030914] shadow-[0_0_6px_#F59E0B]"></span>
-                        
-                        {/* Halt Duration & Time */}
-                        <div className="flex items-center justify-between gap-1 text-[9px]">
-                          <span className="font-bold text-amber-400">
-                            ⏱ Halt Duration: <span className="text-amber-200 font-extrabold">{stop.durationMins} mins</span>
+                        <div className="flex items-center justify-between text-[9px]">
+                          <span className="font-extrabold text-amber-300">
+                            ⏱ Stoppage Duration: <span className="text-amber-100 underline decoration-amber-500 font-black">{stop.durationMins} mins</span>
                           </span>
-                          <span className="text-[8.5px] px-1 py-0.2 rounded bg-amber-950/90 text-amber-300 font-bold border border-amber-800/80">
+                          <span className="text-[8px] px-1 rounded bg-amber-950 text-amber-300 border border-amber-700 font-mono font-bold">
                             {stop.startTime} – {stop.endTime}
                           </span>
                         </div>
-
-                        {/* Halt Location */}
-                        <div className="mt-0.5 text-[9.5px] text-slate-200 font-medium leading-snug group-hover:text-amber-200 transition">
-                          <span className="text-slate-400 font-normal">Halt Location: </span>
-                          <span className="font-semibold text-white">{stop.name}</span>
+                        <div className="text-[9.5px] text-white font-medium mt-0.5 group-hover:text-amber-200 transition">
+                          {stop.name}
+                        </div>
+                        <div className="text-[8px] text-slate-400 mt-0.5 flex items-center justify-between">
+                          <span>Reason: {stop.reason}</span>
+                          <span className="text-amber-400 font-semibold">Speed: 0 km/h</span>
                         </div>
                       </div>
                     ))}
+                  </div>
 
-                    {/* 3. CURRENT LIVE POINT */}
-                    <div 
-                      onClick={() => {
-                        const map = mapInstanceRef.current;
-                        if (map) map.setView(journeyTimeline.current.coords, 12, { animate: true });
-                      }}
-                      className="relative pl-2.5 py-0.5 rounded hover:bg-[#072445]/60 cursor-pointer transition group"
-                      title="Click to center on Live Point"
-                    >
-                      <span className="absolute -left-4 top-1.5 w-2.5 h-2.5 rounded-full bg-cyan-400 border-2 border-[#030914] shadow-[0_0_8px_#00F0FF] animate-pulse"></span>
-                      <div className="flex items-center justify-between text-[8.5px]">
-                        <span className="font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1">
-                          <span className="w-1 h-1 rounded-full bg-cyan-400 animate-ping"></span>
-                          Current Point ({journeyTimeline.current.time || 'Live'})
-                        </span>
-                        <span className="text-[9px] px-1 py-0.2 rounded bg-cyan-950 text-cyan-300 font-bold border border-cyan-700">
-                          ⚡ {journeyTimeline.current.speedKmh} km/h
-                        </span>
+                  {/* SECTION 3: CURRENT LOCATION */}
+                  <div 
+                    onClick={() => {
+                      const map = mapInstanceRef.current;
+                      if (map) map.setView(journeyTimeline.current.coords, 12, { animate: true });
+                    }}
+                    className="p-2.5 rounded-lg bg-[#04172C]/90 border border-cyan-500/80 hover:border-cyan-300 hover:bg-[#072445] cursor-pointer transition shadow-xs group"
+                    title="Click to center on Live Current Location"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center space-x-1.5 text-cyan-300 font-bold text-[9px] uppercase tracking-wider">
+                        <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#00F0FF] animate-ping"></span>
+                        <span>3. Current Location</span>
                       </div>
-                      <div className="font-medium text-white text-[9.5px] mt-0.5 leading-snug group-hover:text-cyan-300 transition">
-                        {journeyTimeline.current.name}
+                      <span className="px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-200 border border-cyan-600 text-[8.5px] font-bold">
+                        ⚡ {journeyTimeline.current.speedKmh} km/h • {journeyTimeline.current.status}
+                      </span>
+                    </div>
+                    <div className="text-[10.5px] font-bold text-white group-hover:text-cyan-200 transition">
+                      {journeyTimeline.current.name}
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-[8px] text-slate-400 pt-1 border-t border-cyan-900/50">
+                      <span>Coordinates: {journeyTimeline.current.coords[0].toFixed(4)}°N, {journeyTimeline.current.coords[1].toFixed(4)}°E</span>
+                      <span className="text-cyan-300 font-bold">{journeyTimeline.current.time}</span>
+                    </div>
+                  </div>
+
+                  {/* SECTION 4: TODAY'S ROUTE TRAVELLED (SINCE 00.00 HRS TODAY) */}
+                  <div className="p-2.5 rounded-lg bg-[#07132B]/90 border border-blue-600/70 shadow-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-1.5 text-blue-300 font-bold text-[9px] uppercase tracking-wider">
+                        <Milestone size={12} className="text-cyan-400" />
+                        <span>4. Today's Route Travelled</span>
+                      </div>
+                      <span className="px-1.5 py-0.2 rounded bg-blue-950 text-blue-200 border border-blue-600 text-[8.5px] font-bold">
+                        {journeyTimeline.totalDistanceKm} km
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5 text-[8.5px]">
+                      <div className="p-1 rounded bg-[#0A1A3D] border border-blue-800/60">
+                        <span className="text-slate-400 block">Distance (Since 00.00h):</span>
+                        <span className="font-bold text-white text-[10px]">{journeyTimeline.totalDistanceKm} km travelled</span>
+                      </div>
+                      <div className="p-1 rounded bg-[#0A1A3D] border border-blue-800/60">
+                        <span className="text-slate-400 block">Active Driving Time:</span>
+                        <span className="font-bold text-emerald-300 text-[10px]">{journeyTimeline.drivingTimeFormatted || '05h 20m'}</span>
                       </div>
                     </div>
                   </div>
+
                 </div>
 
-                {/* Timeline Bottom Action Bar */}
-                <div className="p-1 bg-[#050C1F] border-t border-cyan-900/60 flex items-center justify-between gap-1 text-[8.5px] shrink-0">
+                {/* Bottom Quick Action Controls */}
+                <div className="p-2 bg-[#040918] border-t border-cyan-900/60 flex items-center gap-1.5 text-[9px] shrink-0">
                   <button
                     onClick={handleFitTodayRoute}
-                    className="flex-1 py-1 rounded bg-[#0C1E44] hover:bg-[#122E68] text-cyan-300 font-bold transition text-center"
+                    className="flex-1 py-1.5 rounded-lg bg-gradient-to-r from-[#0C2A5E] to-[#123E8A] hover:from-[#123E8A] hover:to-[#1853BA] text-cyan-200 font-bold border border-cyan-500/60 transition flex items-center justify-center space-x-1 shadow-sm cursor-pointer"
+                    title="Fit entire today's route from start point to current location on map"
                   >
-                    Fit Route
+                    <Compass size={12} />
+                    <span>Fit Route on Map</span>
                   </button>
                   <button
                     onClick={handleFocusSelectedTruck}
-                    className="flex-1 py-1 rounded bg-[#0A261D] hover:bg-[#0E3529] text-emerald-300 font-bold transition text-center"
+                    className="flex-1 py-1.5 rounded-lg bg-gradient-to-r from-[#0A3022] to-[#104D36] hover:from-[#104D36] hover:to-[#176B4B] text-emerald-200 font-bold border border-emerald-500/60 transition flex items-center justify-center space-x-1 shadow-sm cursor-pointer"
+                    title="Focus live vehicle position"
                   >
-                    Focus Truck
+                    <Crosshair size={12} />
+                    <span>Focus Live Location</span>
                   </button>
                 </div>
               </div>
+            ) : (
+              /* Minimized Floating Re-Open Button on Side */
+              <button
+                style={{ zIndex: 1200 }}
+                onClick={() => setShowTimelineDrawer(true)}
+                className={`absolute top-3 ${drawerSide === 'right' ? 'right-3' : 'left-3'} px-3 py-1.5 rounded-lg bg-[#070F26]/95 hover:bg-[#0C1E44] border-2 border-cyan-500/80 text-cyan-300 font-mono font-bold text-xs shadow-xl flex items-center space-x-2 transition cursor-pointer`}
+                title="Expand Route Details Box (Since 00.00 hrs today)"
+              >
+                <Route size={14} className="text-cyan-400" />
+                <span>Route Details (Since 00.00 hrs) ▶</span>
+              </button>
             )}
 
             {/* DOCKED BOTTOM EXECUTIVE NOC 8-BOX CONSOLE */}
@@ -1170,10 +1275,10 @@ export default function Screen2LiveMapTracking({ isExpanded = false, onToggleExp
                             ? 'bg-cyan-600 text-white border-cyan-400 shadow-sm'
                             : 'bg-[#091838] text-cyan-300 border-cyan-700/80 hover:bg-[#122A5C]'
                         }`}
-                        title="Toggle 00:00 hrs Vertical Route Timeline (Stoppages)"
+                        title="Toggle Route Details Box (Since 00.00 hrs today)"
                       >
                         <Route size={11} />
-                        <span>00:00h Timeline</span>
+                        <span>Route Details (00:00h)</span>
                       </button>
                       <button
                         onClick={handleFocusSelectedTruck}

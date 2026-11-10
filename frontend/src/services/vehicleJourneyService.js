@@ -62,53 +62,53 @@ export const VEHICLE_JOURNEY_DATA = {
 
   'VH-101': { // MH-12-RN-8842 (Tata Prima 5530.S Tractor)
     reg_no: 'MH-12-RN-8842',
-    route_name: 'Mumbai - Nagpur Express Freight (Samruddhi Mahamarg)',
+    route_name: 'Kanpur - Fatehpur - Prayagraj Freight Corridor (NH-19)',
+    currentLocation: 'Kunda, Prayagraj Highway (NH330), Uttar Pradesh',
     origin: {
-      name: 'JNPT Port Logistics Terminal, Navi Mumbai',
-      coords: [18.9499, 72.9515],
-      time: 'Today 00:00 AM',
+      name: 'Transport Nagar Logistics Hub, Kanpur',
+      coords: [26.4499, 80.3319],
+      time: 'Today 00:00 AM (00.00 hrs)',
       type: 'START',
       status: 'Midnight Departure',
       odometerKm: 98450,
       fuelLiters: 420,
-      notes: 'Cleared customs terminal outward at 00:00 hrs'
+      notes: 'Cleared dispatch dock outward at 00.00 hrs today'
     },
     stoppages: [
       {
         id: 'ST-101-1',
-        name: 'Kasara Ghat Heavy Truck Layby km 118, MH',
-        coords: [19.6936, 73.5611],
+        name: 'Fatehpur Highway Oasis Layby (NH-19 km 78)',
+        coords: [25.9264, 80.8128],
         startTime: '02:30 AM',
         endTime: '03:05 AM',
         durationMins: 35,
-        kmFromOrigin: 118,
-        reason: 'Brake Cooling & Incline Checkpost',
+        kmFromOrigin: 78,
+        reason: 'Driver Tea Break & Tire Pressure Check',
         speedKmh: 0,
         fuelLiters: 382,
         status: 'Stopped'
       },
       {
         id: 'ST-101-2',
-        name: 'Jalna Expressway Rest Bay km 385, MH',
-        coords: [19.8410, 75.8864],
+        name: 'Sirathu Highway Rest Bay (NH-19 km 135)',
+        coords: [25.6520, 81.3190],
         startTime: '06:15 AM',
         endTime: '06:40 AM',
         durationMins: 25,
-        kmFromOrigin: 385,
-        reason: 'Driver Refreshment & Fuel Inspection',
+        kmFromOrigin: 135,
+        reason: 'Driver Breakfast & Auxiliary Check',
         speedKmh: 0,
-        fuelLiters: 295,
+        fuelLiters: 345,
         status: 'Stopped'
       }
     ],
     routePathCoords: [
-      [18.9499, 72.9515],
-      [19.2183, 72.9781],
-      [19.6936, 73.5611], // Stop 1 (>15m)
-      [19.9975, 73.7898],
-      [19.8762, 75.3433],
-      [19.8410, 75.8864], // Stop 2 (>15m)
-      [20.4837, 77.4842]  // Current Live
+      [26.4499, 80.3319], // 00:00 hrs Start: Transport Nagar Kanpur
+      [26.2400, 80.5100], // NH-19 Maharajpur
+      [25.9264, 80.8128], // Stop 1 (>15m): Fatehpur Oasis km 78
+      [25.7900, 81.0400], // Khaga bypass
+      [25.6520, 81.3190], // Stop 2 (>15m): Sirathu Rest Bay km 135
+      [25.6893, 81.6491]  // Current Live Point: Kunda Highway (NH330)
     ]
   },
 
@@ -450,7 +450,7 @@ export function getVehicleJourneyTimeline(vehicle) {
 
   const curLat = Number(vehicle.current_lat || 22.5);
   const curLng = Number(vehicle.current_lng || 78.5);
-  const curLocName = vehicle.currentLocation || vehicle.location_name || `${vehicle.route_name || 'Highway Corridor'} (Active GPS)`;
+  const curLocName = vehicle.currentLocation || vehicle.location_name || preset?.currentLocation || `${vehicle.route_name || 'Highway Corridor'} (Active GPS)`;
   const curSpeed = vehicle.speed_kmh !== undefined ? vehicle.speed_kmh : 55;
   const curStatus = vehicle.status || 'WORKING';
 
