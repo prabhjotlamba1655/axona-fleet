@@ -282,7 +282,7 @@ const RAW_INCIDENTS = [
     time: '11:58 AM',
     location: 'Samruddhi Mahamarg km 194, Jalna',
     metric: '-14.2 km/h/s (3.9s)',
-    details: 'Emergency deceleration detected (-14.2 km/h/s) from 68 km/h to 12 km/h in 3.9s. Driver Rajesh Gurjar avoided stalled tractor.',
+    details: 'Harsh braking detected! Your vehicle number MH-12-RN-8842 has experienced sudden deceleration. Please check driver safety & ensure safe driving practices.',
     impact_inr: 0,
     status: 'PENDING'
   },
@@ -293,7 +293,7 @@ const RAW_INCIDENTS = [
     time: '10:14 AM',
     location: 'Bangalore-Chennai Highway Toll Plaza Approach',
     metric: '-12.8 km/h/s (2.8s)',
-    details: 'Harsh braking triggered upon sudden lane cut by auto-rickshaw near flyover exit.',
+    details: 'Harsh braking detected! Your vehicle number KA-04-MB-4190 has experienced sudden deceleration. Please check driver safety & ensure safe driving practices.',
     impact_inr: 0,
     status: 'ACKNOWLEDGED'
   },
@@ -304,7 +304,7 @@ const RAW_INCIDENTS = [
     time: '07:22 AM',
     location: 'Kotputli Toll Plaza km 138',
     metric: '-13.5 km/h/s (3.1s)',
-    details: 'Rapid braking event recorded at toll barrier approach. FASTag scanner delay forced driver to sudden brake.',
+    details: 'Harsh braking detected! Your vehicle number UP-32-HN-1244 has experienced sudden deceleration. Please check driver safety & ensure safe driving practices.',
     impact_inr: 0,
     status: 'RESOLVED'
   },
@@ -1730,6 +1730,8 @@ export default function AlertReportDashboard({ onReturnHome }) {
                           const tm = inc.time || '08:30 AM';
                           return `Refuelling detected! Your vehicle has added ${qty} litres of fuel at ${loc}, at ${tm}.`;
                         })()
+                      : inc.alert_type === 'HARSH_BRAKING'
+                      ? `Harsh braking detected! Your vehicle number ${vehicleReg} has experienced sudden deceleration. Please check driver safety & ensure safe driving practices.`
                       : inc.details
                     }
                   </p>
