@@ -1213,80 +1213,22 @@ export default function Screen3FleetOverview({
           {/* Horizontal Scroller Toolbar */}
 
           <div className="px-3 py-1.5 bg-[#070D1C] border-b border-slate-800 flex items-center justify-between text-[11px] font-mono shrink-0">
-
-            <div className="flex items-center space-x-2 text-slate-400">
-
-              <span className="text-[10px] uppercase font-bold text-cyan-400 tracking-wider">↔ Slide Sheet:</span>
-
-              <button
-
-                onClick={() => scrollTable('left')}
-
-                className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center space-x-1 border border-slate-700 transition"
-
-              >
-
-                <ChevronLeft size={12} />
-
-                <span>Left</span>
-
-              </button>
-
-              <input
-
-                type="range"
-
-                min="0"
-
-                max="100"
-
-                value={scrollProgress}
-
-                onChange={handleSliderChange}
-
-                className="w-40 sm:w-56 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-
-              />
-
-              <button
-
-                onClick={() => scrollTable('right')}
-
-                className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center space-x-1 border border-slate-700 transition"
-
-              >
-
-                <span>Right</span>
-
-                <ChevronRight size={12} />
-
-              </button>
-
-              <span className="text-cyan-400 font-bold text-[10px]">{scrollProgress}%</span>
-
+            <div className="flex items-center space-x-3 text-slate-400">
+              <span className="text-[10px] uppercase font-bold text-cyan-400 tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                Complete Fleet Telemetry • All Columns Visible On Single Screen (No Scroll Required)
+              </span>
             </div>
-
-
 
             <div className="flex items-center space-x-3 text-[10.5px]">
-
               <span className="text-emerald-400 font-semibold flex items-center gap-1">
-
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-
-                S.No & Vehicle Number Columns Freezed on Left
-
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                Live Sync Active
               </span>
-
               <span className="text-slate-400">|</span>
-
               <span className="text-slate-300">Showing <b>{filteredVehicles.length}</b> of {enrichedVehicles.length} Vehicles</span>
-
             </div>
-
           </div>
-
-
 
           {/* ------------------------------------------------------------- */}
 
@@ -1308,66 +1250,77 @@ export default function Screen3FleetOverview({
 
           >
 
-            <table className="w-full text-left border-collapse whitespace-nowrap min-w-[3200px]">
+            <table className="w-full text-left border-collapse text-[10.5px]">
 
               {/* Sticky Table Header */}
 
-              <thead className="sticky top-0 z-30 bg-[#070D1F] border-b-2 border-slate-700 font-mono text-[10px] uppercase font-bold tracking-wider text-slate-400">
-
+              <thead className="sticky top-0 z-30 bg-[#070D1F] border-b-2 border-slate-700 font-mono text-[9.5px] uppercase font-bold tracking-wider text-slate-400">
                 <tr>
-
-                  {/* FROZEN COLUMN 1: S.NO */}
-                  <th className={`sticky left-0 top-0 z-40 ${isLight ? 'bg-slate-100 text-cyan-800' : 'bg-[#0A1128] text-cyan-300'} border-r border-slate-700 px-2.5 py-2.5 w-12 min-w-[50px] text-center font-mono`}>
+                  {/* S.NO */}
+                  <th className="border-r border-slate-700 px-1.5 py-2 w-9 min-w-[36px] text-center font-mono text-cyan-300">
                     S.No
                   </th>
 
-                  {/* FROZEN COLUMN 2: VEHICLE NO */}
-                  <th className={`sticky left-[50px] top-0 z-40 ${isLight ? 'bg-slate-100 text-cyan-800 border-cyan-400/50 shadow-[4px_0_10px_rgba(0,0,0,0.06)]' : 'bg-[#0A1128] text-cyan-300 border-cyan-500/50 shadow-[6px_0_15px_rgba(0,0,0,0.7)]'} border-r-2 px-3 py-2.5 min-w-[140px]`}>
+                  {/* VEHICLE NO */}
+                  <th className="border-r border-slate-700 px-2 py-2 w-28 min-w-[105px] text-cyan-300">
                     Vehicle No
                   </th>
 
-                  {/* SEPARATE COLUMN 3: MAKE */}
-                  <th className="px-3 py-2.5 border-r border-slate-800 min-w-[120px]">
+                  {/* MAKE */}
+                  <th className="px-2 py-2 border-r border-slate-800 w-20 min-w-[80px]">
                     Make
                   </th>
 
-                  {/* SEPARATE COLUMN 4: MODEL */}
-                  <th className="px-3 py-2.5 border-r border-slate-800 min-w-[200px]">
+                  {/* MODEL */}
+                  <th className="px-2 py-2 border-r border-slate-800 min-w-[150px]">
                     Model
                   </th>
 
-                  {/* SEPARATE COLUMN 5: STATUS */}
-                  <th className="px-3 py-2.5 border-r border-slate-800 text-center min-w-[95px]">
+                  {/* STATUS */}
+                  <th className="px-1.5 py-2 border-r border-slate-800 text-center w-20 min-w-[76px]">
                     Status
                   </th>
 
-                  {/* SEPARATE COLUMN 6: SPEED */}
-                  <th className="px-3 py-2.5 border-r border-slate-800 text-right min-w-[90px]">
+                  {/* SPEED */}
+                  <th className="px-1.5 py-2 border-r border-slate-800 text-right w-16 min-w-[62px]">
                     Speed
                   </th>
 
-                  <th className="px-3 py-2.5 border-r border-slate-800 min-w-[220px]">Current Landmark Location</th>
+                  {/* LOCATION */}
+                  <th className="px-2 py-2 border-r border-slate-800 min-w-[170px]">
+                    Current Landmark Location
+                  </th>
 
-                  <th className="px-3 py-2.5 border-r border-slate-800 min-w-[200px]">Assigned Route & Corridor</th>
-
-                  
+                  {/* ASSIGNED ROUTE */}
+                  <th className="px-2 py-2 border-r border-slate-800 min-w-[170px]">
+                    Assigned Route & Corridor
+                  </th>
 
                   {/* SHIFT & TIMING */}
+                  <th className="px-1.5 py-2 border-r border-slate-800 text-center w-20 min-w-[78px]">
+                    Shift Start
+                  </th>
 
-                  <th className="px-3 py-2.5 border-r border-slate-800 text-center">Work Shift Start</th>
+                  <th className="px-1 py-2 border-r border-slate-800 text-center w-16 min-w-[60px]">
+                    Working
+                  </th>
 
-                  <th className="px-3 py-2.5 border-r border-slate-800 text-center">Working (Active)</th>
+                  <th className="px-1 py-2 border-r border-slate-800 text-center w-16 min-w-[60px]">
+                    Idling
+                  </th>
 
-                  <th className="px-3 py-2.5 border-r border-slate-800 text-center">Idling (Engine ON)</th>
+                  <th className="px-1 py-2 border-r border-slate-800 text-center w-16 min-w-[60px]">
+                    Stopped
+                  </th>
 
-                  <th className="px-3 py-2.5 border-r border-slate-800 text-center">Stopped (Halt)</th>
+                  <th className="px-2 py-2 border-r border-slate-800 text-right w-24 min-w-[85px]">
+                    Fuel Level
+                  </th>
 
-                  <th className="px-3 py-2.5 border-r border-slate-800 text-right">Fuel Level (L / mm)</th>
-
-                  <th className="px-3 py-2.5 text-right">Fuel Flow (L/h)</th>
-
+                  <th className="px-2 py-2 text-right w-20 min-w-[70px]">
+                    Fuel Flow
+                  </th>
                 </tr>
-
               </thead>
 
 
@@ -1392,31 +1345,31 @@ export default function Screen3FleetOverview({
 
                     >
 
-                      {/* FROZEN COLUMN 1: S.NO */}
-                      <td className={`sticky left-0 z-20 ${isLight ? 'bg-white group-hover:bg-slate-50' : 'bg-[#0B152E] group-hover:bg-[#12224A]'} border-r border-slate-800 px-2.5 py-2 w-12 min-w-[50px] text-center font-mono text-slate-400 font-bold`}>
+                      {/* S.NO */}
+                      <td className="border-r border-slate-800 px-1.5 py-1.5 w-9 min-w-[36px] text-center font-mono text-slate-400 font-bold">
                         {idx + 1}
                       </td>
 
-                      {/* FROZEN COLUMN 2: VEHICLE NO */}
-                      <td className={`sticky left-[50px] z-20 ${isLight ? 'bg-white group-hover:bg-slate-50 border-cyan-400/50 shadow-[4px_0_10px_rgba(0,0,0,0.06)]' : 'bg-[#0B152E] group-hover:bg-[#12224A] border-cyan-500/50 shadow-[6px_0_15px_rgba(0,0,0,0.7)]'} border-r-2 px-3 py-2 min-w-[140px]`}>
-                        <div>
-                          <span className={`font-bold font-mono text-xs block tracking-wide ${isLight ? 'text-slate-900' : 'text-white'}`}>{v.reg_no}</span>
-                        </div>
+                      {/* VEHICLE NO */}
+                      <td className="border-r border-slate-800 px-2 py-1.5 w-28 min-w-[105px]">
+                        <span className="font-bold font-mono text-[11px] block tracking-wide text-white">{v.reg_no}</span>
                       </td>
 
-                      {/* SEPARATE COLUMN 3: MAKE */}
-                      <td className="px-3 py-2 border-r border-slate-800 font-mono text-xs font-semibold text-slate-200">
+                      {/* MAKE */}
+                      <td className="px-2 py-1.5 border-r border-slate-800 font-mono text-[11px] font-semibold text-slate-200">
                         {parseMakeAndModel(v.model).make}
                       </td>
 
-                      {/* SEPARATE COLUMN 4: MODEL */}
-                      <td className="px-3 py-2 border-r border-slate-800 font-mono text-[11px] text-slate-300">
-                        {parseMakeAndModel(v.model).model}
+                      {/* MODEL */}
+                      <td className="px-2 py-1.5 border-r border-slate-800 font-mono text-[10.5px] text-slate-300">
+                        <span className="block truncate max-w-[200px]" title={parseMakeAndModel(v.model).model}>
+                          {parseMakeAndModel(v.model).model}
+                        </span>
                       </td>
 
-                      {/* SEPARATE COLUMN 5: STATUS */}
-                      <td className="px-3 py-2 border-r border-slate-800 text-center">
-                        <span className={`inline-block px-2 py-0.5 rounded text-[9.5px] font-bold ${
+                      {/* STATUS */}
+                      <td className="px-1 py-1.5 border-r border-slate-800 text-center">
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold ${
                           v.status === 'RUNNING' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' :
                           v.status === 'IDLE' ? 'bg-amber-950 text-amber-300 border border-amber-800' :
                           'bg-slate-800 text-slate-300'
@@ -1425,108 +1378,64 @@ export default function Screen3FleetOverview({
                         </span>
                       </td>
 
-                      {/* SEPARATE COLUMN 6: SPEED */}
-                      <td className="px-3 py-2 border-r border-slate-800 text-right font-mono">
-                        <span className="font-bold text-white text-xs">{v.speed_kmh} <span className="text-[9.5px] text-slate-400 font-normal">km/h</span></span>
+                      {/* SPEED */}
+                      <td className="px-1.5 py-1.5 border-r border-slate-800 text-right font-mono">
+                        <span className="font-bold text-white text-[11px]">{v.speed_kmh} <span className="text-[9px] text-slate-400 font-normal">km/h</span></span>
                       </td>
 
                       {/* CURRENT LANDMARK LOCATION */}
-
-                      <td className="px-3 py-2 border-r border-slate-800 text-slate-300 min-w-[220px]">
-
-                        <span className="text-emerald-300 font-semibold block text-[11px]">{v.locationName}</span>
-
-                        <span className="text-[9.5px] text-slate-400 block font-mono">
-
-                          GPS: {v.current_lat ? v.current_lat.toFixed(4) : '28.4521'}, {v.current_lng ? v.current_lng.toFixed(4) : '77.0254'}
-
+                      <td className="px-2 py-1.5 border-r border-slate-800 text-slate-300 min-w-[170px]">
+                        <span className="text-emerald-300 font-semibold block text-[10.5px] truncate max-w-[220px]" title={v.locationName}>
+                          {v.locationName}
                         </span>
-
+                        <span className="text-[9px] text-slate-400 block font-mono">
+                          GPS: {v.current_lat ? v.current_lat.toFixed(4) : '28.4521'}, {v.current_lng ? v.current_lng.toFixed(4) : '77.0254'}
+                        </span>
                       </td>
-
-
 
                       {/* ASSIGNED ROUTE */}
-
-                      <td className="px-3 py-2 border-r border-slate-800 min-w-[200px]">
-
-                        <span className="text-slate-200 block text-[10.5px] font-medium">{v.route_name}</span>
-
-                        <span className="text-[9.5px] text-slate-400 block">
-
-                          Dev: <b className={v.deviation_km > 40 ? 'text-rose-400' : 'text-slate-400'}>{v.deviation_km || 0} km</b> (Allowed: 40 km)
-
+                      <td className="px-2 py-1.5 border-r border-slate-800 min-w-[170px]">
+                        <span className="text-slate-200 block text-[10px] font-medium truncate max-w-[210px]" title={v.route_name}>
+                          {v.route_name}
                         </span>
-
+                        <span className="text-[9px] text-slate-400 block">
+                          Dev: <b className={v.deviation_km > 40 ? 'text-rose-400' : 'text-slate-400'}>{v.deviation_km || 0} km</b>
+                        </span>
                       </td>
-
-
 
                       {/* WORK SHIFT START */}
-
-                      <td className="px-3 py-2 border-r border-slate-800 text-center">
-
-                        <span className="font-bold text-slate-200 block">{v.work_start_time || '08:00 AM'}</span>
-
-                        {v.late_start === 1 ? (
-
-                          <span className="text-[9px] px-1 rounded bg-rose-950 text-rose-300 border border-rose-800 font-bold">
-
-                            LATE START
-
-                          </span>
-
-                        ) : (
-
-                          <span className="text-[9px] text-emerald-400 font-bold">ON-TIME</span>
-
-                        )}
-
+                      <td className="px-1.5 py-1.5 border-r border-slate-800 text-center">
+                        <span className="font-bold text-slate-200 block text-[10px]">{v.work_start_time || '08:00 AM'}</span>
+                        <span className={`text-[8.5px] px-1 rounded font-bold ${v.late_start === 1 ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'text-emerald-400'}`}>
+                          {v.late_start === 1 ? 'LATE' : 'ON-TIME'}
+                        </span>
                       </td>
-
-
 
                       {/* WORKING HOURS */}
-
-                      <td className="px-3 py-2 border-r border-slate-800 text-center font-bold text-emerald-400">
-
+                      <td className="px-1 py-1.5 border-r border-slate-800 text-center font-bold text-emerald-400 text-[10.5px]">
                         {v.workingHours} hrs
-
                       </td>
-
-
 
                       {/* IDLE HOURS */}
-
-                      <td className="px-3 py-2 border-r border-slate-800 text-center font-bold text-amber-400">
-
+                      <td className="px-1 py-1.5 border-r border-slate-800 text-center font-bold text-amber-400 text-[10.5px]">
                         {v.idleHours} hrs
-
                       </td>
-
-
 
                       {/* STOPPED HOURS */}
-
-                      <td className="px-3 py-2 border-r border-slate-800 text-center font-bold text-slate-400">
-
+                      <td className="px-1 py-1.5 border-r border-slate-800 text-center font-bold text-slate-400 text-[10.5px]">
                         {v.stoppedHours} hrs
-
                       </td>
 
-
-
                       {/* FUEL LEVEL */}
-                      <td className="px-3 py-2 border-r border-slate-800 text-right">
-                        <span className="font-bold text-cyan-400 block text-xs">{v.current_fuel_liters} L</span>
-                        <span className="text-[9.5px] text-slate-400 block">{v.fuel_level_mm} mm ({Math.round(((v.current_fuel_liters || 200) / (v.tank_capacity_liters || 400)) * 100)}%)</span>
+                      <td className="px-2 py-1.5 border-r border-slate-800 text-right">
+                        <span className="font-bold text-cyan-400 block text-[11px]">{v.current_fuel_liters} L</span>
+                        <span className="text-[9px] text-slate-400 block">{v.fuel_level_mm} mm ({Math.round(((v.current_fuel_liters || 200) / (v.tank_capacity_liters || 400)) * 100)}%)</span>
                       </td>
 
                       {/* FUEL FLOW */}
-                      <td className="px-3 py-2 text-right font-bold text-amber-300">
+                      <td className="px-2 py-1.5 text-right font-bold text-amber-300 text-[11px]">
                         {v.fuel_flow_rate_lph || (v.status === 'RUNNING' ? '18.4' : v.status === 'IDLE' ? '2.1' : '0.0')} L/h
-                      </td>
-                    </tr>
+                      </td></tr>
 
                   );
 
