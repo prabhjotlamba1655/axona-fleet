@@ -24,6 +24,25 @@ const DIESEL_RATE = 94.0;
 
 
 
+
+// Helper to separate full model string into Make and Model
+const parseMakeAndModel = (fullModel = '') => {
+  const knownMakes = ['Ashok Leyland', 'BharatBenz', 'Tata', 'Eicher', 'Mahindra', 'Volvo', 'Scania', 'MAN', 'Force', 'Isuzu'];
+  for (const make of knownMakes) {
+    if (fullModel.startsWith(make)) {
+      return {
+        make,
+        model: fullModel.slice(make.length).trim()
+      };
+    }
+  }
+  const parts = fullModel.split(' ');
+  return {
+    make: parts[0] || '—',
+    model: parts.slice(1).join(' ') || fullModel
+  };
+};
+
 export default function Screen3FleetOverview({ 
 
   isExpanded = false, 
@@ -548,13 +567,14 @@ export default function Screen3FleetOverview({
 
 
 
-      exportRows = vehiclesToExport.map(v => ({
-
-        reg_no: v.reg_no,
-
-        vehicle_id: v.id,
-
-        model: v.model,
+      exportRows = vehiclesToExport.map((v, idx) => {
+        const parsed = parseMakeAndModel(v.model);
+        return {
+          s_no: idx + 1,
+          reg_no: v.reg_no,
+          vehicle_id: v.id,
+          make: parsed.make,
+          model: parsed.model,
 
         num_wheels: v.num_wheels,
 
@@ -648,7 +668,8 @@ export default function Screen3FleetOverview({
 
         hist_last_incident: `${v.history?.lastDate || '—'} (${v.history?.lastLiters || 0} L)`
 
-      }));
+      };
+      });
 
     }
 
@@ -662,7 +683,7 @@ export default function Screen3FleetOverview({
 
     const headers = [
 
-      'Registration No', 'Vehicle ID', 'Make & Model', 'Axle Wheels', 'Operational Status', 'Speed (km/h)',
+      'S.No', 'Vehicle Registration No', 'Vehicle ID', 'Make', 'Model', 'Axle Wheels', 'Operational Status', 'Speed (km/h)',
 
       'Current Location Landmark', 'Assigned Corridor Route', 'Work Shift Start Time', '8 AM Shift Compliance',
 
@@ -699,7 +720,7 @@ export default function Screen3FleetOverview({
 
     const keys = [
 
-      'reg_no', 'vehicle_id', 'model', 'num_wheels', 'status', 'speed_kmh',
+      's_no', 'reg_no', 'vehicle_id', 'make', 'model', 'num_wheels', 'status', 'speed_kmh',
 
       'location', 'route_name', 'work_start_time', 'late_start',
 
@@ -1253,7 +1274,7 @@ export default function Screen3FleetOverview({
 
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
 
-                Vehicle Number Column Freezed on Left
+                S.No & Vehicle Number Columns Freezed on Left
 
               </span>
 
@@ -1295,19 +1316,35 @@ export default function Screen3FleetOverview({
 
                 <tr>
 
-                  {/* FROZEN COLUMN 1: VEHICLE NUMBER & MODEL (PINNED ON LEFT) */}
-
-                  <th className={`sticky left-0 top-0 z-40 ${isLight ? 'bg-slate-100 text-cyan-800 border-cyan-400/50 shadow-[4px_0_10px_rgba(0,0,0,0.06)]' : 'bg-[#0A1128] text-cyan-300 border-cyan-500/50 shadow-[6px_0_15px_rgba(0,0,0,0.7)]'} border-r-2 px-3 py-2.5 min-w-[210px]`}>
-
-                    Vehicle No & Model (Freezed)
-
+                  {/* FROZEN COLUMN 1: S.NO */}
+                  <th className={`sticky left-0 top-0 z-40 ${isLight ? 'bg-slate-100 text-cyan-800' : 'bg-[#0A1128] text-cyan-300'} border-r border-slate-700 px-2.5 py-2.5 w-12 min-w-[50px] text-center font-mono`}>
+                    S.No
                   </th>
 
+                  {/* FROZEN COLUMN 2: VEHICLE NO */}
+                  <th className={`sticky left-[50px] top-0 z-40 ${isLight ? 'bg-slate-100 text-cyan-800 border-cyan-400/50 shadow-[4px_0_10px_rgba(0,0,0,0.06)]' : 'bg-[#0A1128] text-cyan-300 border-cyan-500/50 shadow-[6px_0_15px_rgba(0,0,0,0.7)]'} border-r-2 px-3 py-2.5 min-w-[140px]`}>
+                    Vehicle No
+                  </th>
 
+                  {/* SEPARATE COLUMN 3: MAKE */}
+                  <th className="px-3 py-2.5 border-r border-slate-800 min-w-[120px]">
+                    Make
+                  </th>
 
-                  {/* IDENTIFICATION & LIVE STATUS */}
+                  {/* SEPARATE COLUMN 4: MODEL */}
+                  <th className="px-3 py-2.5 border-r border-slate-800 min-w-[200px]">
+                    Model
+                  </th>
 
-                  <th className="px-3 py-2.5 border-r border-slate-800">Status & Speed</th>
+                  {/* SEPARATE COLUMN 5: STATUS */}
+                  <th className="px-3 py-2.5 border-r border-slate-800 text-center min-w-[95px]">
+                    Status
+                  </th>
+
+                  {/* SEPARATE COLUMN 6: SPEED */}
+                  <th className="px-3 py-2.5 border-r border-slate-800 text-right min-w-[90px]">
+                    Speed
+                  </th>
 
                   <th className="px-3 py-2.5 border-r border-slate-800 min-w-[220px]">Current Landmark Location</th>
 
@@ -1413,53 +1450,46 @@ export default function Screen3FleetOverview({
 
                     >
 
-                      {/* FROZEN COLUMN 1: VEHICLE NUMBER & MODEL (PINNED ON LEFT) */}
+                      {/* FROZEN COLUMN 1: S.NO */}
+                      <td className={`sticky left-0 z-20 ${isLight ? 'bg-white group-hover:bg-slate-50' : 'bg-[#0B152E] group-hover:bg-[#12224A]'} border-r border-slate-800 px-2.5 py-2 w-12 min-w-[50px] text-center font-mono text-slate-400 font-bold`}>
+                        {idx + 1}
+                      </td>
 
-                      <td className={`sticky left-0 z-20 ${isLight ? 'bg-white group-hover:bg-slate-50 border-cyan-400/50 shadow-[4px_0_10px_rgba(0,0,0,0.06)]' : 'bg-[#0B152E] group-hover:bg-[#12224A] border-cyan-500/50 shadow-[6px_0_15px_rgba(0,0,0,0.7)]'} border-r-2 px-3 py-2 min-w-[210px]`}>
-
+                      {/* FROZEN COLUMN 2: VEHICLE NO */}
+                      <td className={`sticky left-[50px] z-20 ${isLight ? 'bg-white group-hover:bg-slate-50 border-cyan-400/50 shadow-[4px_0_10px_rgba(0,0,0,0.06)]' : 'bg-[#0B152E] group-hover:bg-[#12224A] border-cyan-500/50 shadow-[6px_0_15px_rgba(0,0,0,0.7)]'} border-r-2 px-3 py-2 min-w-[140px]`}>
                         <div>
-
                           <span className={`font-bold font-mono text-xs block tracking-wide ${isLight ? 'text-slate-900' : 'text-white'}`}>{v.reg_no}</span>
-
                           <span className={`text-[10px] font-mono font-medium block ${isLight ? 'text-cyan-700' : 'text-cyan-400'}`}>
-
-                            {v.id} • {v.model}
-
+                            {v.id}
                           </span>
-
                         </div>
-
                       </td>
 
-
-
-                      {/* STATUS & SPEED */}
-
-                      <td className="px-3 py-2 border-r border-slate-800">
-
-                        <div className="flex items-center space-x-2">
-
-                          <span className={`inline-block px-1.5 py-0.5 rounded text-[9.5px] font-bold ${
-
-                            v.status === 'RUNNING' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' :
-
-                            v.status === 'IDLE' ? 'bg-amber-950 text-amber-300 border border-amber-800' :
-
-                            'bg-slate-800 text-slate-300'
-
-                          }`}>
-
-                            {v.status}
-
-                          </span>
-
-                          <span className="font-bold text-white text-xs">{v.speed_kmh} <span className="text-[9px] text-slate-400 font-normal">km/h</span></span>
-
-                        </div>
-
+                      {/* SEPARATE COLUMN 3: MAKE */}
+                      <td className="px-3 py-2 border-r border-slate-800 font-mono text-xs font-semibold text-slate-200">
+                        {parseMakeAndModel(v.model).make}
                       </td>
 
+                      {/* SEPARATE COLUMN 4: MODEL */}
+                      <td className="px-3 py-2 border-r border-slate-800 font-mono text-[11px] text-slate-300">
+                        {parseMakeAndModel(v.model).model}
+                      </td>
 
+                      {/* SEPARATE COLUMN 5: STATUS */}
+                      <td className="px-3 py-2 border-r border-slate-800 text-center">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[9.5px] font-bold ${
+                          v.status === 'RUNNING' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' :
+                          v.status === 'IDLE' ? 'bg-amber-950 text-amber-300 border border-amber-800' :
+                          'bg-slate-800 text-slate-300'
+                        }`}>
+                          {v.status}
+                        </span>
+                      </td>
+
+                      {/* SEPARATE COLUMN 6: SPEED */}
+                      <td className="px-3 py-2 border-r border-slate-800 text-right font-mono">
+                        <span className="font-bold text-white text-xs">{v.speed_kmh} <span className="text-[9.5px] text-slate-400 font-normal">km/h</span></span>
+                      </td>
 
                       {/* CURRENT LANDMARK LOCATION */}
 
