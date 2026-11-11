@@ -1166,9 +1166,7 @@ export default function Screen3FleetOverview({
 
                   { id: 'STOPPED', label: 'STOPPED' },
 
-                  { id: 'LATE_START', label: 'LATE START' },
-
-                  { id: 'LOSS', label: '5 PILLARS LOSS' }
+                  { id: 'LATE_START', label: 'LATE START' }
 
                 ].map(st => (
 
@@ -1196,13 +1194,7 @@ export default function Screen3FleetOverview({
 
 
 
-              {/* TV Auto Scroll indicator pill */}
-
-              <div className="text-[10px] font-mono text-cyan-400 flex items-center space-x-1 bg-cyan-950/60 px-2 py-1 rounded border border-cyan-800">
-
-                <span>TV Auto-Scroll: {autoScrollEnabled ? (isPausedHover ? 'Paused (Hover)' : `Active (${scrollSpeed})`) : 'Off'}</span>
-
-              </div>
+              
 
             </div>
 
