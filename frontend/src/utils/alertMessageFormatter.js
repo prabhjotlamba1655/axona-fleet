@@ -103,6 +103,13 @@ export function formatStandardizedAlertMessage(alert) {
     return details || `Primary telematics harness power supply disconnected. Auxiliary backup internal Li-ion active (3.7V). Possible tampering or electrical fault.`;
   }
 
+  // 16. Panic Alert (SOS Button)
+  if (type === 'PANIC_ALERT' || type === 'PANIC' || type === 'SOS') {
+    const loc = location ? ` at ${location}` : '';
+    const tm = time ? ` at ${time}` : '';
+    return details || `Emergency SOS Panic Alert! Physical panic button pressed by driver in vehicle ${vehicleReg}${loc}${tm}. Immediate emergency assistance requested.`;
+  }
+
   // 16. Stoppage (> 2h with Ignition OFF) - Reason sentence removed
   if (type === 'EXCESSIVE_STOPPAGE' || type === 'STOPPAGE') {
     const parts = (details || '').split('. ');

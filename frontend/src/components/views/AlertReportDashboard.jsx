@@ -157,6 +157,14 @@ const ALERT_VIOLATIONS = [
     description: 'Main vehicle battery disconnected or physical tamper wire triggered'
   },
   {
+    id: 'PANIC_ALERT',
+    label: 'Panic Alert',
+    icon: '🚨',
+    severity: 'CRIT',
+    category: 'Emergency & Safety',
+    description: 'Driver activated physical AIS-140 emergency SOS panic button on vehicle dashboard'
+  },
+  {
     id: 'EXCESSIVE_STOPPAGE',
     label: 'Stoppage (> 2h)',
     icon: '🛑',
@@ -822,6 +830,30 @@ const RAW_INCIDENTS = [
     details: 'Idling Alert! Vehicle number MH-12-RN-8842 remained idle for 27 minutes at Samruddhi Mahamarg Rest Stop, resulting in 2.8 litres of diesel wasted in idling (approx. ₹263).',
     impact_inr: 263,
     status: 'PENDING'
+  },
+
+  // 20. Panic Alert (SOS Button) (2 incidents)
+  {
+    id: 'ALT-1070',
+    alert_type: 'PANIC_ALERT',
+    vehicle_id: 'VH-102',
+    time: '10:48 AM',
+    location: 'NH48 Kotputli Flyover Approach, RJ',
+    metric: 'SOS Button Triggered (AIS-140)',
+    details: 'Emergency SOS Panic Alert! The physical panic button in vehicle DL-01-AB-1234 was pressed by the driver. Immediate emergency protocol activated. Highway patrol & fleet control room alerted.',
+    impact_inr: 0,
+    status: 'PENDING'
+  },
+  {
+    id: 'ALT-1071',
+    alert_type: 'PANIC_ALERT',
+    vehicle_id: 'VH-107',
+    time: '07:15 AM',
+    location: 'NH48 Shahpura Rest Layby, RJ',
+    metric: 'SOS Button Triggered (AIS-140)',
+    details: 'Emergency SOS Panic Alert! Driver pressed physical dash panic button on vehicle RJ-14-GH-6655 due to sudden medical distress. Control room dispatched emergency highway ambulance.',
+    impact_inr: 0,
+    status: 'RESOLVED'
   }
 ];
 
