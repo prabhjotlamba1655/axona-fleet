@@ -347,33 +347,12 @@ export default function VehicleRouteMapModal({ vehicle, vehicles = [], onClose, 
               z-index: -1;
             "></div>
 
-            <!-- Authentic Commercial Freight Truck SVG (Prime Mover & Trailer) -->
-            <svg width="44" height="22" viewBox="0 0 54 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <!-- Long Cargo Container Trailer -->
-              <rect x="2" y="3" width="32" height="18" rx="2" fill="#0B172E" stroke="${borderColor}" stroke-width="1.8" />
-              <!-- Container Corrugations -->
-              <line x1="8" y1="4" x2="8" y2="20" stroke="${borderColor}" stroke-opacity="0.35" stroke-width="1.2" />
-              <line x1="14" y1="4" x2="14" y2="20" stroke="${borderColor}" stroke-opacity="0.35" stroke-width="1.2" />
-              <line x1="20" y1="4" x2="20" y2="20" stroke="${borderColor}" stroke-opacity="0.35" stroke-width="1.2" />
-              <line x1="26" y1="4" x2="26" y2="20" stroke="${borderColor}" stroke-opacity="0.35" stroke-width="1.2" />
-              <!-- Tractor Cab Body -->
-              <path d="M34 11 L40 4 L47 4 L51 12 L51 21 L34 21 Z" fill="#152648" stroke="${borderColor}" stroke-width="1.8" />
-              <!-- Aerodynamic Roof Fairing -->
-              <path d="M36 7 L41 3 L47 3 L47 4 L36 7 Z" fill="${borderColor}" fill-opacity="0.7" />
-              <!-- Windshield Glass with Tint Reflection -->
-              <path d="M40.5 5.5 L46 5.5 L49 12 L40.5 12 Z" fill="#38BDF8" fill-opacity="0.85" />
-              <!-- Driver Cabin Window -->
-              <rect x="36" y="7" width="3.5" height="5" rx="0.5" fill="#38BDF8" fill-opacity="0.7" />
-              <!-- Forward Headlamp Beam -->
-              <polygon points="51,16 54,15 54,19 51,18" fill="#FDE047" />
-              <!-- Dual Rear Axle Wheels -->
-              <circle cx="8" cy="22" r="3.5" fill="#020617" stroke="#94A3B8" stroke-width="1.5" />
-              <circle cx="8" cy="22" r="1.5" fill="${pulseColor}" />
-              <circle cx="16" cy="22" r="3.5" fill="#020617" stroke="#94A3B8" stroke-width="1.5" />
-              <circle cx="16" cy="22" r="1.5" fill="${pulseColor}" />
-              <!-- Front Steer Wheel -->
-              <circle cx="43" cy="22" r="3.5" fill="#020617" stroke="#94A3B8" stroke-width="1.5" />
-              <circle cx="43" cy="22" r="1.5" fill="${pulseColor}" />
+            <!-- Universal Vehicle Symbol (Car & Truck) -->
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${borderColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2" />
+              <circle cx="7" cy="17" r="2" fill="${pulseColor}" />
+              <path d="M9 17h6" />
+              <circle cx="17" cy="17" r="2" fill="${pulseColor}" />
             </svg>
           </div>
 
