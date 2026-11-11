@@ -100,14 +100,14 @@ export function getMapProvider(providerId, userToken = '') {
     }
   }
 
-  // Professional High-Definition Default Providers (100% Free & Watermark-Free)
+  // Professional High-Definition Default Providers (100% Free, Open-Source & Watermark-Free)
   const providers = {
-    // Ultra-clean high-contrast dark telemetry map with crisp highway lines & city nodes (Zero Watermarks)
+    // Open-Source Dark Telematics Base (High-contrast, zero watermark, pure open-source)
     dark: {
       id: 'dark',
       label: 'Dark Tactical',
       icon: '🌑',
-      hint: 'Professional Fleet Telematics Dark Base with High-Contrast Roadways & City Labels',
+      hint: 'Open-Source Fleet Telematics High-Contrast Dark Map',
       url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       options: {
         maxZoom: 19,
@@ -115,6 +115,19 @@ export function getMapProvider(providerId, userToken = '') {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       }
     },
+    // Esri World Dark Gray Canvas: Elegant clean dark GIS map
+    esri_dark: {
+      id: 'esri_dark',
+      label: 'Esri Dark Canvas',
+      icon: '🗺️',
+      hint: 'Esri High-Definition World Dark Gray Canvas',
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+      options: {
+        maxZoom: 18,
+        attribution: 'Tiles &copy; Esri'
+      }
+    },
+    // Esri World Imagery: Open-access high-resolution satellite imagery
     satellite: {
       id: 'satellite',
       label: 'Satellite HD',
@@ -126,6 +139,19 @@ export function getMapProvider(providerId, userToken = '') {
         attribution: 'Tiles &copy; Esri, Earthstar Geographics'
       }
     },
+    // Pure OpenStreetMap Standard
+    osm: {
+      id: 'osm',
+      label: 'OSM Standard',
+      icon: '🗺️',
+      hint: 'OpenStreetMap Community Open GIS Layer',
+      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      options: {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }
+    },
+    // Open-Source Highway Corridor Streets
     streets: {
       id: 'streets',
       label: 'Corridor Streets',
@@ -135,17 +161,6 @@ export function getMapProvider(providerId, userToken = '') {
       options: {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      }
-    },
-    esri_dark: {
-      id: 'esri_dark',
-      label: 'Esri Canvas',
-      icon: '🗺️',
-      hint: 'Esri World Dark Gray Canvas Base',
-      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-      options: {
-        maxZoom: 18,
-        attribution: 'Tiles &copy; Esri'
       }
     }
   };
