@@ -377,8 +377,8 @@ export default function Screen2LiveMapTracking({ isExpanded = false, onToggleExp
       const customIcon = L.divIcon({
         className: isSelected ? 'selected-truck-leaflet-marker' : 'pro-truck-leaflet-marker',
         html: generateTruckMarkerHtml(v, isSelected),
-        iconSize: isSelected ? [240, 95] : [175, 34],
-        iconAnchor: isSelected ? [120, 85] : [87, 17]
+        iconSize: isSelected ? [180, 44] : [160, 38],
+        iconAnchor: isSelected ? [90, 44] : [80, 38]
       });
 
       const marker = L.marker([Number(v.current_lat || 22.5), Number(v.current_lng || 78.5)], { 

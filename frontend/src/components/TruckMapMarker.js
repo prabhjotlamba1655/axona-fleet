@@ -41,28 +41,31 @@ export function generateTruckMarkerHtml(vehicle, isSelected = false) {
     </svg>
   `;
 
-  // Selected Vehicle: Slightly accented micro-pill with GPS pin pointer
+  // Selected Vehicle: Accented micro-pill with precision drop indicator pin pointing to exact coordinate
   if (isSelected) {
     return `
       <div class="selected-vehicle-map-marker" style="
-        position: relative;
-        display: inline-flex;
+        width: 180px;
+        height: 44px;
+        display: flex;
         flex-direction: column;
         align-items: center;
+        justify-content: flex-end;
+        position: relative;
         user-select: none;
         cursor: pointer;
         z-index: 5000;
-        transform: translate(-50%, -100%);
       ">
+        <!-- Top Vehicle Info Pill -->
         <div style="
           display: inline-flex;
           align-items: center;
           gap: 4px;
           background: #060D20;
-          border: 1.5px solid ${statusColor};
-          border-radius: 12px;
-          padding: 2px 6px 2px 5px;
-          box-shadow: 0 0 12px ${statusGlow}, 0 4px 10px rgba(0,0,0,0.85);
+          border: 1.8px solid ${statusColor};
+          border-radius: 9999px;
+          padding: 2px 7px 2px 5px;
+          box-shadow: 0 0 16px ${statusGlow}, 0 4px 12px rgba(0,0,0,0.9);
           white-space: nowrap;
         ">
           <span style="
@@ -97,71 +100,115 @@ export function generateTruckMarkerHtml(vehicle, isSelected = false) {
             ${speed}k
           </span>
         </div>
-        <!-- Pin point pointer -->
+
+        <!-- Downward Drop Needle Pointer -->
         <div style="
           width: 0;
           height: 0;
-          border-left: 4px solid transparent;
-          border-right: 4px solid transparent;
-          border-top: 5px solid ${statusColor};
+          border-left: 5px solid transparent;
+          border-right: 5px solid transparent;
+          border-top: 7px solid ${statusColor};
           margin-top: -1px;
+          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.85));
+        "></div>
+
+        <!-- Exact Coordinate Drop Pinpoint Dot -->
+        <div style="
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: #FFFFFF;
+          border: 1.5px solid ${statusColor};
+          box-shadow: 0 0 8px ${statusColor};
+          margin-top: 1px;
         "></div>
       </div>
     `;
   }
 
-  // Standard Vehicle Marker: Tiny, compact, sleek micro-pill (Car & Truck compatible)
+  // Standard Vehicle Marker: Tiny, compact, sleek micro-pill with drop indicator pointing to exact road location
   return `
     <div class="tiny-vehicle-map-marker" style="
-      position: relative;
-      display: inline-flex;
+      width: 160px;
+      height: 38px;
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 3.5px;
-      background: rgba(6, 13, 30, 0.94);
-      border: 1px solid ${statusBorder};
-      border-radius: 9999px;
-      padding: 1.5px 5px 1.5px 4px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.8), 0 0 6px ${statusGlow};
+      justify-content: flex-end;
+      position: relative;
       cursor: pointer;
-      white-space: nowrap;
-      transform: translate(-50%, -50%);
       user-select: none;
-      transition: transform 0.15s ease-out;
     ">
-      ${universalVehicleSvg}
-      <span style="
-        color: #FFFFFF;
-        font-family: 'Chakra Petch', monospace;
-        font-weight: 700;
-        font-size: 8.5px;
-        letter-spacing: 0.2px;
-        line-height: 1;
+      <!-- Top Vehicle Info Pill -->
+      <div style="
+        display: inline-flex;
+        align-items: center;
+        gap: 3.5px;
+        background: rgba(6, 13, 30, 0.96);
+        border: 1.2px solid ${statusBorder};
+        border-radius: 9999px;
+        padding: 1.5px 5.5px 1.5px 4px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.85), 0 0 8px ${statusGlow};
+        white-space: nowrap;
+        transition: transform 0.15s ease-out;
       ">
-        ${vehicle.reg_no}
-      </span>
-      <span style="
-        font-family: monospace;
-        font-size: 7.5px;
-        font-weight: 800;
-        color: ${statusColor};
-        background: ${statusBg};
-        padding: 0 3px;
-        border-radius: 3px;
-        line-height: 1.2;
-      ">
-        ${speed}
-      </span>
-      ${isBreached ? `
+        ${universalVehicleSvg}
         <span style="
-          width: 5px;
-          height: 5px;
-          border-radius: 50%;
-          background: #EF4444;
-          box-shadow: 0 0 6px #EF4444;
-          display: inline-block;
-          margin-left: 1px;
-        "></span>
-      ` : ''}
+          color: #FFFFFF;
+          font-family: 'Chakra Petch', monospace;
+          font-weight: 700;
+          font-size: 8.5px;
+          letter-spacing: 0.2px;
+          line-height: 1;
+        ">
+          ${vehicle.reg_no}
+        </span>
+        <span style="
+          font-family: monospace;
+          font-size: 7.5px;
+          font-weight: 800;
+          color: ${statusColor};
+          background: ${statusBg};
+          padding: 0 3px;
+          border-radius: 3px;
+          line-height: 1.2;
+        ">
+          ${speed}k
+        </span>
+        ${isBreached ? `
+          <span style="
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #EF4444;
+            box-shadow: 0 0 6px #EF4444;
+            display: inline-block;
+            margin-left: 1px;
+          "></span>
+        ` : ''}
+      </div>
+
+      <!-- Downward Drop Needle Pointer (Teardrop stem) -->
+      <div style="
+        width: 0;
+        height: 0;
+        border-left: 4.5px solid transparent;
+        border-right: 4.5px solid transparent;
+        border-top: 6px solid ${statusColor};
+        margin-top: -1px;
+        filter: drop-shadow(0 2px 3px rgba(0,0,0,0.8));
+      "></div>
+
+      <!-- Exact Coordinate Drop Pinpoint Dot -->
+      <div style="
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: #FFFFFF;
+        border: 1.5px solid ${statusColor};
+        box-shadow: 0 0 6px ${statusColor};
+        margin-top: 1px;
+      "></div>
     </div>
   `;
 }
