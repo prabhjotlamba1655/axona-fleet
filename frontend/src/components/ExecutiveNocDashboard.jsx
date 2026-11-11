@@ -293,7 +293,7 @@ export default function ExecutiveNocDashboard({
   };
 
   const getRequiredPlan = (featureKey) => {
-    const advancedFeatures = ['E_WAY_BILL', 'CHALLANS', 'RTO_COMPLIANCE', 'MOBILE_TRACKING', 'DRIVER_DL'];
+    const advancedFeatures = ['E_WAY_BILL', 'CHALLANS', 'RTO_COMPLIANCE', 'FASTAG_TOLL', 'DRIVER_DL'];
     if (advancedFeatures.includes(featureKey)) return 'Advanced';
     return 'Standard';
   };
@@ -2677,7 +2677,7 @@ export default function ExecutiveNocDashboard({
         'E_WAY_BILL': 'E-Way Bill',
         'CHALLANS': 'Challans',
         'RTO_COMPLIANCE': 'Compliance RTO',
-        'MOBILE_TRACKING': 'Mobile Tracking',
+        'FASTAG_TOLL': 'FastTag Toll Intelligence',
         'DRIVER_DL': 'Driver DL Verification'
       };
       setUpgradePrompt({
@@ -7744,692 +7744,270 @@ export default function ExecutiveNocDashboard({
 
 
 
-      case 'MOBILE_TRACKING':
-
-      case 'FASTAG_TOLL': {
-
-        const mobileTrackingRows = [
-
+      case 'FASTAG_TOLL':
+      case 'MOBILE_TRACKING': {
+        const fastagTollRows = [
           {
-
             s_no: 1,
-
-            driver_name: 'Rajesh Gurjar',
-
-            driver_id: 'DRV-101',
-
-            vehicle_id: 'VH-101',
-
             reg_no: 'MH-12-RN-8842',
-
-            make: 'Tata',
-
-            model: 'Prima 5530.S (18-Wheeler)',
-
-            mobile_number: '+91 98231 44019',
-
-            telecom_operator: 'Jio 5G',
-
-            tracking_mode: 'Driver App GPS',
-
-            tracking_mode_code: 'APP_GPS',
-
-            location: 'Samruddhi Mahamarg Ch. 182, Jalna Bypass',
-
-            lat_lng: '19.8324° N, 75.8821° E',
-
-            accuracy: '±8m (A-GPS High Fix)',
-
-            accuracy_m: 8,
-
-            speed_kmh: 58,
-
-            movement_status: 'Moving (58 km/h)',
-
-            battery_pct: 92,
-
-            signal_bars: '5G (4/4 Bars)',
-
-            last_ping: 'Just now (4s ago)',
-
-            status: 'LIVE STREAMING',
-
-            status_code: 'ONLINE',
-
-            consent_verified: true
-
+            vehicle_id: 'VH-101',
+            model: 'Tata Prima 5530.S (18-Wheeler)',
+            driver_name: 'Rajesh Gurjar',
+            tag_id: '34161FA8203284000101',
+            issuing_bank: 'IDFC FIRST Bank',
+            wallet_balance_inr: 5450,
+            toll_paid_today_inr: 5850,
+            plazas_crossed_today: 5,
+            last_plaza: 'Samruddhi Expressway Ch. 182 Jalna Plaza',
+            crossing_time: '13:42 IST',
+            toll_lane: 'Dedicated FASTag Lane 04',
+            vehicle_class: 'Class 4 (3-Axle Commercial)',
+            status: 'VERIFIED',
+            status_code: 'SUCCESS',
+            is_overcharged: false
           },
-
           {
-
             s_no: 2,
-
-            driver_name: 'Vikram Singh',
-
-            driver_id: 'DRV-102',
-
-            vehicle_id: 'VH-102',
-
             reg_no: 'DL-01-AB-1234',
-
-            make: 'BharatBenz',
-
-            model: '3528R (12-Wheeler Reefer)',
-
-            mobile_number: '+91 98110 55231',
-
-            telecom_operator: 'Airtel 4G LTE',
-
-            tracking_mode: 'Driver App GPS',
-
-            tracking_mode_code: 'APP_GPS',
-
-            location: 'Kotputli Industrial Corridor, NH48',
-
-            lat_lng: '27.7051° N, 76.2008° E',
-
-            accuracy: '±12m (A-GPS Fix)',
-
-            accuracy_m: 12,
-
-            speed_kmh: 46,
-
-            movement_status: 'Moving (46 km/h)',
-
-            battery_pct: 78,
-
-            signal_bars: '4G LTE (4/4 Bars)',
-
-            last_ping: '9s ago',
-
-            status: 'LIVE STREAMING',
-
-            status_code: 'ONLINE',
-
-            consent_verified: true
-
+            vehicle_id: 'VH-102',
+            model: 'BharatBenz 3528R (12-Wheeler Reefer)',
+            driver_name: 'Vikram Singh',
+            tag_id: '34161FA8203284000102',
+            issuing_bank: 'ICICI Bank',
+            wallet_balance_inr: 850,
+            toll_paid_today_inr: 4920,
+            plazas_crossed_today: 4,
+            last_plaza: 'Kotputli Plaza, NH48 (KM 106)',
+            crossing_time: '10:48 IST',
+            toll_lane: 'ETC Lane 02',
+            vehicle_class: 'Class 4 (3-Axle Commercial)',
+            status: 'LOW BALANCE RISK',
+            status_code: 'WARNING',
+            is_overcharged: false
           },
-
           {
-
             s_no: 3,
-
-            driver_name: 'Manoj Yadav',
-
-            driver_id: 'DRV-103',
-
-            vehicle_id: 'VH-103',
-
             reg_no: 'KA-04-E-5678',
-
-            make: 'Ashok Leyland',
-
-            model: '4220 (14-Wheeler Multi-Axle)',
-
-            mobile_number: '+91 97410 88219',
-
-            telecom_operator: 'Jio 5G',
-
-            tracking_mode: 'Driver App GPS',
-
-            tracking_mode_code: 'APP_GPS',
-
-            location: 'Hosur Attibele Border Plaza, NH44',
-
-            lat_lng: '12.7758° N, 77.8012° E',
-
-            accuracy: '±10m (A-GPS Fix)',
-
-            accuracy_m: 10,
-
-            speed_kmh: 0,
-
-            movement_status: 'Stationary (Toll Queue)',
-
-            battery_pct: 85,
-
-            signal_bars: '5G (4/4 Bars)',
-
-            last_ping: '12s ago',
-
-            status: 'LIVE STREAMING',
-
-            status_code: 'ONLINE',
-
-            consent_verified: true
-
+            vehicle_id: 'VH-103',
+            model: 'Ashok Leyland 4220 HG (14-Wheeler)',
+            driver_name: 'Manoj Yadav',
+            tag_id: '34161FA8203284000103',
+            issuing_bank: 'SBI FASTag',
+            wallet_balance_inr: 6200,
+            toll_paid_today_inr: 4100,
+            plazas_crossed_today: 3,
+            last_plaza: 'Sriperumbudur Toll Plaza, NH48',
+            crossing_time: '09:20 IST',
+            toll_lane: 'Dedicated FASTag Lane 06',
+            vehicle_class: 'Class 5 (4-6 Axle MAV)',
+            status: 'VERIFIED',
+            status_code: 'SUCCESS',
+            is_overcharged: false
           },
-
           {
-
             s_no: 4,
-
-            driver_name: 'Suresh Patel',
-
-            driver_id: 'DRV-104',
-
-            vehicle_id: 'VH-104',
-
-            reg_no: 'GJ-06-TC-9988',
-
-            make: 'Eicher',
-
-            model: 'Pro 6028 (10-Wheeler Tipper)',
-
-            mobile_number: '+91 98250 66341',
-
-            telecom_operator: 'Vodafone Idea (Vi 4G)',
-
-            tracking_mode: 'SIM LBS Triangulation',
-
-            tracking_mode_code: 'SIM_LBS',
-
-            location: 'Vadodara Toll Plaza, NE-1 Expressway',
-
-            lat_lng: '22.3072° N, 73.1812° E',
-
-            accuracy: '±45m (Cell ID Tower Triangulation)',
-
-            accuracy_m: 45,
-
-            speed_kmh: 52,
-
-            movement_status: 'Moving (52 km/h)',
-
-            battery_pct: 64,
-
-            signal_bars: '4G (3/4 Bars)',
-
-            last_ping: '22s ago',
-
-            status: 'SIM CONSENT ACTIVE',
-
-            status_code: 'ONLINE',
-
-            consent_verified: true
-
-          },
-
-          {
-
-            s_no: 5,
-
-            driver_name: 'Harpreet Singh',
-
-            driver_id: 'DRV-105',
-
-            vehicle_id: 'VH-105',
-
             reg_no: 'HR-55-B-4321',
-
-            make: 'Mahindra',
-
-            model: 'Blazo X 35 (12-Wheeler Haulage)',
-
-            mobile_number: '+91 98720 11984',
-
-            telecom_operator: 'Airtel 5G Plus',
-
-            tracking_mode: 'Driver App GPS',
-
-            tracking_mode_code: 'APP_GPS',
-
-            location: 'Kherki Daula Flyover, NH48 Gurgaon',
-
-            lat_lng: '28.4021° N, 76.9935° E',
-
-            accuracy: '±9m (A-GPS High Fix)',
-
-            accuracy_m: 9,
-
-            speed_kmh: 62,
-
-            movement_status: 'Moving (62 km/h)',
-
-            battery_pct: 95,
-
-            signal_bars: '5G (4/4 Bars)',
-
-            last_ping: '6s ago',
-
-            status: 'LIVE STREAMING',
-
-            status_code: 'ONLINE',
-
-            consent_verified: true
-
+            vehicle_id: 'VH-104',
+            model: 'Mahindra Blazo X 35 (12-Wheeler Cargo)',
+            driver_name: 'Harpreet Singh',
+            tag_id: '34161FA8203284000104',
+            issuing_bank: 'HDFC Bank',
+            wallet_balance_inr: 4800,
+            toll_paid_today_inr: 5200,
+            plazas_crossed_today: 5,
+            last_plaza: 'Dharuhera Toll Plaza, NH48',
+            crossing_time: '11:05 IST',
+            toll_lane: 'ETC Lane 03',
+            vehicle_class: 'Class 4 (3-Axle Commercial)',
+            status: 'VERIFIED',
+            status_code: 'SUCCESS',
+            is_overcharged: false
           },
-
           {
-
+            s_no: 5,
+            reg_no: 'DL-01-AX-9021',
+            vehicle_id: 'VH-105',
+            model: 'Tata Prima 4028.S (14-Wheeler)',
+            driver_name: 'Satbir Yadav',
+            tag_id: '34161FA8203284000105',
+            issuing_bank: 'Axis Bank',
+            wallet_balance_inr: 3900,
+            toll_paid_today_inr: 4650,
+            plazas_crossed_today: 4,
+            last_plaza: 'Kherki Daula Toll Plaza, NH48',
+            crossing_time: '08:35 IST',
+            toll_lane: 'Dedicated FASTag Lane 01',
+            vehicle_class: 'Class 4 (3-Axle Commercial)',
+            status: 'VERIFIED',
+            status_code: 'SUCCESS',
+            is_overcharged: false
+          },
+          {
             s_no: 6,
-
-            driver_name: 'Dinesh Shinde',
-
-            driver_id: 'DRV-106',
-
-            vehicle_id: 'VH-106',
-
             reg_no: 'MH-04-KF-7721',
-
-            make: 'Tata',
-
-            model: 'Signa 4825.TK (16-Wheeler Tipper)',
-
-            mobile_number: '+91 98190 33452',
-
-            telecom_operator: 'Jio 5G',
-
-            tracking_mode: 'Driver App GPS',
-
-            tracking_mode_code: 'APP_GPS',
-
-            location: 'Vijayawada Bypass, NH16 Corridor',
-
-            lat_lng: '16.5062° N, 80.6480° E',
-
-            accuracy: '±11m (A-GPS Fix)',
-
-            accuracy_m: 11,
-
-            speed_kmh: 49,
-
-            movement_status: 'Moving (49 km/h)',
-
-            battery_pct: 81,
-
-            signal_bars: '5G (4/4 Bars)',
-
-            last_ping: '14s ago',
-
-            status: 'LIVE STREAMING',
-
-            status_code: 'ONLINE',
-
-            consent_verified: true
-
+            vehicle_id: 'VH-106',
+            model: 'Tata Signa 4825.TK (16-Wheeler Tipper)',
+            driver_name: 'Dinesh Shinde',
+            tag_id: '34161FA8203284000106',
+            issuing_bank: 'Kotak Mahindra Bank',
+            wallet_balance_inr: 5100,
+            toll_paid_today_inr: 4800,
+            plazas_crossed_today: 4,
+            last_plaza: 'Keesara Toll Plaza, NH16 Vijayawada',
+            crossing_time: '12:50 IST',
+            toll_lane: 'ETC Lane 05',
+            vehicle_class: 'Class 5 (4-6 Axle MAV)',
+            status: 'VERIFIED',
+            status_code: 'SUCCESS',
+            is_overcharged: false
           },
-
           {
-
             s_no: 7,
-
-            driver_name: 'Ramesh Sharma',
-
-            driver_id: 'DRV-107',
-
+            reg_no: 'UP-32-HN-1244',
             vehicle_id: 'VH-107',
-
-            reg_no: 'RJ-14-GH-6655',
-
-            make: 'Ashok Leyland',
-
-            model: '4825 (16-Wheeler Haulage)',
-
-            mobile_number: '+91 94140 77123',
-
-            telecom_operator: 'BSNL / Airtel Roaming',
-
-            tracking_mode: 'SIM LBS Triangulation',
-
-            tracking_mode_code: 'SIM_LBS',
-
-            location: 'Shahjahanpur Rajasthan Border, NH48',
-
-            lat_lng: '27.9943° N, 76.5412° E',
-
-            accuracy: '±55m (Cell ID Tower Triangulation)',
-
-            accuracy_m: 55,
-
-            speed_kmh: 0,
-
-            movement_status: 'Stationary (Waybill Check)',
-
-            battery_pct: 58,
-
-            signal_bars: '4G (3/4 Bars)',
-
-            last_ping: '28s ago',
-
-            status: 'SIM CONSENT ACTIVE',
-
-            status_code: 'ONLINE',
-
-            consent_verified: true
-
+            model: 'Tata Signa 2823.K (10-Wheeler Tipper)',
+            driver_name: 'Rameshwar Pal',
+            tag_id: '34161FA8203284000107',
+            issuing_bank: 'IDFC FIRST Bank',
+            wallet_balance_inr: 4200,
+            toll_paid_today_inr: 4400,
+            plazas_crossed_today: 4,
+            last_plaza: 'Nawabganj Toll Plaza, NH27',
+            crossing_time: '10:12 IST',
+            toll_lane: 'Dedicated FASTag Lane 02',
+            vehicle_class: 'Class 4 (3-Axle Commercial)',
+            status: 'VERIFIED',
+            status_code: 'SUCCESS',
+            is_overcharged: false
           },
-
           {
-
             s_no: 8,
-
-            driver_name: 'Anil Verma',
-
-            driver_id: 'DRV-108',
-
-            vehicle_id: 'VH-108',
-
             reg_no: 'UP-32-MN-2200',
-
-            make: 'BharatBenz',
-
-            model: '2823R (10-Wheeler Cargo)',
-
-            mobile_number: '+91 94520 99411',
-
-            telecom_operator: 'Jio 5G',
-
-            tracking_mode: 'Driver App GPS',
-
-            tracking_mode_code: 'APP_GPS',
-
-            location: 'Varanasi Ring Road Junction, NH19',
-
-            lat_lng: '25.3176° N, 82.9739° E',
-
-            accuracy: '±14m (A-GPS Fix)',
-
-            accuracy_m: 14,
-
-            speed_kmh: 42,
-
-            movement_status: 'Moving (42 km/h)',
-
-            battery_pct: 72,
-
-            signal_bars: '5G (4/4 Bars)',
-
-            last_ping: '10s ago',
-
-            status: 'LIVE STREAMING',
-
-            status_code: 'ONLINE',
-
-            consent_verified: true
-
+            vehicle_id: 'VH-108',
+            model: 'BharatBenz 2823R (10-Wheeler Cargo)',
+            driver_name: 'Anil Verma',
+            tag_id: '34161FA8203284000108',
+            issuing_bank: 'SBI FASTag',
+            wallet_balance_inr: 3750,
+            toll_paid_today_inr: 4350,
+            plazas_crossed_today: 4,
+            last_plaza: 'Dafi Varanasi Toll Plaza, NH19',
+            crossing_time: '11:40 IST',
+            toll_lane: 'ETC Lane 04',
+            vehicle_class: 'Class 4 (3-Axle Commercial)',
+            status: 'VERIFIED',
+            status_code: 'SUCCESS',
+            is_overcharged: false
           },
-
           {
-
             s_no: 9,
-
-            driver_name: 'Karthik Raja',
-
-            driver_id: 'DRV-109',
-
-            vehicle_id: 'VH-109',
-
             reg_no: 'TN-09-XY-3344',
-
-            make: 'Volvo',
-
-            model: 'FH500 (22-Wheeler Puller)',
-
-            mobile_number: '+91 98400 22345',
-
-            telecom_operator: 'Airtel 5G Plus',
-
-            tracking_mode: 'Driver App GPS',
-
-            tracking_mode_code: 'APP_GPS',
-
-            location: 'Krishnagiri Highway Rest Stop, NH44',
-
-            lat_lng: '12.5186° N, 78.2137° E',
-
-            accuracy: '±7m (A-GPS High Fix)',
-
-            accuracy_m: 7,
-
-            speed_kmh: 0,
-
-            movement_status: 'Stationary (Driver Break)',
-
-            battery_pct: 89,
-
-            signal_bars: '5G (4/4 Bars)',
-
-            last_ping: '5s ago',
-
-            status: 'LIVE STREAMING',
-
-            status_code: 'ONLINE',
-
-            consent_verified: true
-
+            vehicle_id: 'VH-109',
+            model: 'Volvo FH500 (22-Wheeler Puller)',
+            driver_name: 'Karthik Raja',
+            tag_id: '34161FA8203284000109',
+            issuing_bank: 'ICICI Bank',
+            wallet_balance_inr: 7800,
+            toll_paid_today_inr: 5120,
+            plazas_crossed_today: 4,
+            last_plaza: 'Krishnagiri Toll Plaza, NH44',
+            crossing_time: '12:10 IST',
+            toll_lane: 'Dedicated FASTag Lane 08',
+            vehicle_class: 'Class 6 (7+ Axle Heavy Commercial)',
+            status: 'VERIFIED',
+            status_code: 'SUCCESS',
+            is_overcharged: false
           },
-
           {
-
             s_no: 10,
-
-            driver_name: 'Subhash Ghosh',
-
-            driver_id: 'DRV-110',
-
-            vehicle_id: 'VH-110',
-
             reg_no: 'WB-19-JK-8811',
-
-            make: 'Eicher',
-
-            model: 'Pro 8035XM (12-Wheeler Dumper)',
-
-            mobile_number: '+91 98310 77654',
-
-            telecom_operator: 'Jio 5G',
-
-            tracking_mode: 'Driver App GPS',
-
-            tracking_mode_code: 'APP_GPS',
-
-            location: 'Dankuni Freight Logistic Park, NH19',
-
-            lat_lng: '22.6841° N, 88.2917° E',
-
-            accuracy: '±10m (A-GPS Fix)',
-
-            accuracy_m: 10,
-
-            speed_kmh: 38,
-
-            movement_status: 'Moving (38 km/h)',
-
-            battery_pct: 91,
-
-            signal_bars: '5G (4/4 Bars)',
-
-            last_ping: '8s ago',
-
-            status: 'LIVE STREAMING',
-
-            status_code: 'ONLINE',
-
-            consent_verified: true
-
+            vehicle_id: 'VH-110',
+            model: 'Eicher Pro 8035XM (12-Wheeler Dumper)',
+            driver_name: 'Subhash Ghosh',
+            tag_id: '34161FA8203284000110',
+            issuing_bank: 'IDFC FIRST Bank',
+            wallet_balance_inr: 4100,
+            toll_paid_today_inr: 3860,
+            plazas_crossed_today: 5,
+            last_plaza: 'Dankuni Toll Plaza, NH19 Staging Area',
+            crossing_time: '09:45 IST',
+            toll_lane: 'Dedicated FASTag Lane 03',
+            vehicle_class: 'Class 4 (3-Axle Commercial)',
+            status: 'VERIFIED',
+            status_code: 'SUCCESS',
+            is_overcharged: false
           }
-
         ];
 
-
-
-        const twelveMonthRows = getTwelveMonthReportData('TOTAL_FLEET', vehicles);
-
-        const twelveMonthCols = getTwelveMonthCsvColumns('TOTAL_FLEET');
-
-
-
         setDrilldownData({
-
           boxKey,
-
-          title: 'Mobile Location Tracking & SIM Telemetry Audit',
-
-          category: 'Driver Smartphone GPS App, Cellular SIM LBS Triangulation & Real-Time Fleet Geolocation',
-
-          badgeText: `${mobileTrackingRows.length} / ${mobileTrackingRows.length} Devices Online • 98.4% GPS Fix • Zero Blindspots`,
-
+          title: 'FastTag Toll Intelligence & Plaza Transit Reconciliation',
+          category: 'NETC NPCI Live Electronic Toll Collection, Plaza Crossing Audit & Low Balance Risk Management',
+          badgeText: `${fastagTollRows.length} Active Tags • 42 Plazas Crossed • ₹47,250 Deducted Today • Zero Discrepancy`,
           accent: {
-
             border: 'border-amber-500/50',
-
             bg: 'bg-amber-500/10',
-
             text: 'text-amber-400',
-
             glow: 'shadow-amber-900/30',
-
             badgeBg: 'bg-amber-950 border-amber-700 text-amber-300'
-
           },
-
           kpis: [
-
-            { 
-
-              label: 'LIVE TRACKED DEVICES', 
-
-              value: '10 / 10 Active', 
-
-              sub: '100% Cellular Reachable',
-
-              badge: '10 Active',
-
+            {
+              label: 'TOTAL TOLL TODAY',
+              value: '₹47,250',
+              sub: '42 Plazas Transited',
+              badge: '42 Plazas',
               badgeColor: 'bg-emerald-950/80 border-emerald-600/70 text-emerald-300',
-
               textColor: 'text-emerald-300'
-
             },
-
-            { 
-
-              label: 'TRACKING METHOD', 
-
-              value: '8 App • 2 SIM LBS', 
-
-              sub: 'Native App GPS & Telco LBS',
-
-              badge: 'Dual Mode',
-
+            {
+              label: 'WALLET BALANCE',
+              value: '₹47,150 Total',
+              sub: '1 Tag Low Balance Warning',
+              badge: '1 Low Bal',
               badgeColor: 'bg-amber-950/80 border-amber-700/60 text-amber-300',
-
               textColor: 'text-amber-300'
-
+            },
+            {
+              label: 'NPCI NETC STATUS',
+              value: '100% Synced',
+              sub: '0 Duplicate / Wrong Deductions',
+              badge: 'Verified',
+              badgeColor: 'bg-cyan-950/80 border-cyan-600/70 text-cyan-300',
+              textColor: 'text-cyan-300'
             }
-
           ],
-
           columns: [
-
             { header: 'S.No.', key: 's_no', render: (v) => <span className="text-slate-400 font-mono text-xs">{v.s_no}</span> },
-
-            { 
-
-              header: 'Driver Name', 
-
-              key: 'driver_name', 
-
-              render: (v) => (
-
-                <span className="text-white font-mono text-xs block font-semibold whitespace-nowrap">{v.driver_name}</span>
-
-              )
-
-            },
-
-            { 
-
-              header: 'Vehicle Number', 
-
-              key: 'reg_no', 
-
-              render: (v) => (
-
-                <span className="text-white font-mono text-xs block font-bold whitespace-nowrap">{v.reg_no}</span>
-
-              )
-
-            },
-
-            { 
-
-              header: 'Mobile No. & Telecom', 
-
-              key: 'mobile_number', 
-
-              render: (v) => (
-
-                <div className="whitespace-nowrap">
-
-                  <span className="text-slate-200 font-mono text-xs block">{v.mobile_number}</span>
-
-                  <span className="text-[10px] text-amber-300 font-mono block">{v.telecom_operator}</span>
-
-                </div>
-
-              )
-
-            },
-
-            { 
-
-              header: 'Current Location & Geofence', 
-
-              key: 'location', 
-
-              render: (v) => (
-
-                <div>
-
-                  <span className="text-slate-200 text-xs block truncate max-w-[280px]" title={v.location}>{v.location}</span>
-
-                  <span className="text-[10px] text-slate-400 font-mono block">{v.lat_lng}</span>
-
-                </div>
-
-              )
-
-            },
-
-            { 
-
-              header: 'Last Ping', 
-
-              key: 'last_ping', 
-
-              render: (v) => (
-
-                <span className="text-slate-300 font-mono text-xs whitespace-nowrap block">
-
-                  {v.last_ping}
-
-                </span>
-
-              )
-
-            }
-
+            { header: 'Vehicle Number', key: 'reg_no', render: (v) => <span className="text-white font-mono text-xs block font-bold whitespace-nowrap">{v.reg_no}</span> },
+            { header: 'FASTag ID (EPC)', key: 'tag_id', render: (v) => <span className="text-slate-300 font-mono text-[11px] block">{v.tag_id}</span> },
+            { header: 'Issuing Bank', key: 'issuing_bank', render: (v) => <span className="text-cyan-300 font-mono text-xs">{v.issuing_bank}</span> },
+            { header: 'Tag Balance', key: 'wallet_balance_inr', render: (v) => <span className={`font-mono text-xs font-bold ${v.wallet_balance_inr < 1000 ? 'text-rose-400' : 'text-emerald-300'}`}>₹{v.wallet_balance_inr.toLocaleString()}</span> },
+            { header: 'Toll Today', key: 'toll_paid_today_inr', render: (v) => <span className="font-mono text-xs text-amber-300 font-bold">₹{v.toll_paid_today_inr.toLocaleString()}</span> },
+            { header: 'Last Toll Plaza', key: 'last_plaza', render: (v) => <span className="text-slate-200 text-xs block max-w-[200px] truncate" title={v.last_plaza}>{v.last_plaza}</span> },
+            { header: 'Crossing Time', key: 'crossing_time', render: (v) => <span className="text-slate-400 font-mono text-xs">{v.crossing_time}</span> },
+            { header: 'Vehicle Class', key: 'vehicle_class', render: (v) => <span className="text-purple-300 font-mono text-[10.5px] whitespace-nowrap">{v.vehicle_class}</span> },
+            { header: 'Audit Status', key: 'status', render: (v) => <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold whitespace-nowrap ${v.status === 'LOW BALANCE RISK' ? 'bg-amber-950 border border-amber-600 text-amber-300' : 'bg-emerald-950 border border-emerald-600 text-emerald-300'}`}>{v.status}</span> }
           ],
-
-          rows: mobileTrackingRows,
-
-          sevenDayRows: mobileTrackingRows,
-
-          twelveMonthRows,
-
-          twelveMonthColumns: twelveMonthCols,
-
-          exportFilename: 'axona_mobile_location_tracking_telemetry.csv'
-
+          rows: fastagTollRows,
+          csvColumns: [
+            { header: 'S.No', key: 's_no' },
+            { header: 'Vehicle Number', key: 'reg_no' },
+            { header: 'Model', key: 'model' },
+            { header: 'Driver Name', key: 'driver_name' },
+            { header: 'FASTag EPC ID', key: 'tag_id' },
+            { header: 'Issuing Bank', key: 'issuing_bank' },
+            { header: 'Wallet Balance (INR)', key: 'wallet_balance_inr' },
+            { header: 'Toll Paid Today (INR)', key: 'toll_paid_today_inr' },
+            { header: 'Plazas Crossed', key: 'plazas_crossed_today' },
+            { header: 'Last Toll Plaza', key: 'last_plaza' },
+            { header: 'Crossing Time', key: 'crossing_time' },
+            { header: 'Vehicle Class', key: 'vehicle_class' },
+            { header: 'Audit Status', key: 'status' }
+          ]
         });
-
         break;
-
       }
-
-
-
       case 'DRIVER_DL': {
 
         const activeDrivers = driverDatabase.filter(d => d.org_status === 'ACTIVE');
@@ -10487,52 +10065,30 @@ export default function ExecutiveNocDashboard({
             {/* Box 4: Mobile Location Tracking (Amber Engraved Button) */}
 
             <div 
-
-              id="box-mobile-tracking"
-
-              onClick={() => handleBoxClick('MOBILE_TRACKING')}
-
+              id="box-fastag-toll"
+              onClick={() => handleBoxClick('FASTAG_TOLL')}
               className="cursor-pointer transition-all duration-150 transform hover:scale-[1.015] hover:brightness-110 active:scale-[0.99] p-3 rounded-xl relative overflow-hidden group shadow-md flex flex-col justify-between flex-1 min-h-[142px] xl:min-h-[156px]"
-
               style={getBoxThemeStyle('amber')}
-
             >
-
-  <div className={`flex flex-col justify-between flex-1 h-full w-full ${!isFeatureUnlocked('MOBILE_TRACKING') ? 'opacity-20 filter blur-[1.5px] select-none pointer-events-none' : ''}`}>
-
-
-              <div className={`flex items-center justify-between text-xs font-bold ${isLight ? 'text-amber-800' : 'text-amber-400'} uppercase tracking-wider shrink-0`}>
-
-                <span className="whitespace-nowrap">Mobile Tracking</span>
-
-                <Smartphone size={17} className={`shrink-0 ${isLight ? 'text-amber-700' : 'text-amber-400'}`} />
-
-              </div>
-
-              <div className="my-auto py-0.5">
-
-                <div className={`text-2xl font-black ${isLight ? 'text-slate-900' : 'text-amber-300'} font-['Chakra_Petch'] leading-tight drop-shadow-md`}>
-
-                  10/10 <span className={`text-xs font-normal ${isLight ? 'text-amber-800' : 'text-amber-300'}`}>Active</span>
-
+              <div className={`flex flex-col justify-between flex-1 h-full w-full ${!isFeatureUnlocked('FASTAG_TOLL') ? 'opacity-20 filter blur-[1.5px] select-none pointer-events-none' : ''}`}>
+                <div className={`flex items-center justify-between text-xs font-bold ${isLight ? 'text-amber-800' : 'text-amber-400'} uppercase tracking-wider shrink-0`}>
+                  <span className="whitespace-nowrap">FastTag Toll Intelligence</span>
+                  <CreditCard size={17} className={`shrink-0 ${isLight ? 'text-amber-700' : 'text-amber-400'}`} />
                 </div>
 
+                <div className="my-auto py-0.5">
+                  <div className={`text-2xl font-black ${isLight ? 'text-slate-900' : 'text-amber-300'} font-['Chakra_Petch'] leading-tight drop-shadow-md`}>
+                    ₹47,250 <span className={`text-xs font-normal ${isLight ? 'text-amber-800' : 'text-amber-300'}`}>Toll Today</span>
+                  </div>
+                </div>
+
+                <div className={`text-[11.5px] ${isLight ? 'text-amber-800 border-amber-200' : 'text-amber-300 border-amber-900/30'} flex justify-between items-center shrink-0 pt-1.5 border-t`}>
+                  <span className="truncate">42 Plazas • 10 Active Tags</span>
+                  <span className={`font-mono font-bold ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>NETC / NPCI</span>
+                </div>
               </div>
-
-              <div className={`text-[11.5px] ${isLight ? 'text-amber-800 border-amber-200' : 'text-amber-300 border-amber-900/30'} flex justify-between items-center shrink-0 pt-1.5 border-t`}>
-
-                <span className="truncate">10 Tracked • 98.4% Fix</span>
-
-                <span className={`font-mono font-bold ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>SIM / App GPS</span>
-
-              </div>
-
-            
-  </div>
-
-  <GatedCardOverlay featureKey="MOBILE_TRACKING" title="Mobile Tracking" isUnlocked={isFeatureUnlocked('MOBILE_TRACKING')} onUpgradeClick={setUpgradePrompt} />
-
-</div>
+              <GatedCardOverlay featureKey="FASTAG_TOLL" title="FastTag Toll Intelligence" isUnlocked={isFeatureUnlocked('FASTAG_TOLL')} onUpgradeClick={setUpgradePrompt} />
+            </div>
 
 
 

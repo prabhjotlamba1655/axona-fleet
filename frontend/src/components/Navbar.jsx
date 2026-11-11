@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { 
   Tv, Maximize2, Minimize2, Play, Pause, FastForward, 
   Wifi, ShieldAlert, MonitorUp, Home, ArrowLeft, Volume2, VolumeX, Menu,
-  Sun, Moon, Sparkles, ShieldCheck, Lock
+  Sun, Moon, Sparkles, ShieldCheck, Lock, Radio, FileCheck, AlertOctagon, Activity
 } from 'lucide-react';
 import axonaLogo from '../assets/axona-brand-logo.png';
-import FunctionalityGuideModal from './views/FunctionalityGuideModal';
+import FunctionalityGuideModal from './views/FunctionalityGuideModal';
+import Ais140SosModal from './views/Ais140SosModal';
+import Ais140FitmentModal from './views/Ais140FitmentModal';
+import Ais140CdacModal from './views/Ais140CdacModal';
 
 export default function Navbar({
   activeView,
@@ -28,7 +31,10 @@ export default function Navbar({
   const [time, setTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [showGuideModal, setShowGuideModal] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
+  const [showSosModal, setShowSosModal] = useState(false);
+  const [showFitmentModal, setShowFitmentModal] = useState(false);
+  const [showCdacModal, setShowCdacModal] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -137,6 +143,63 @@ export default function Navbar({
 
       {/* Right Controls: Theme Switcher & Live Clock */}
       <div className="flex items-center space-x-2.5">
+        
+        {/* AIS-140 Compliance Suite Small Tabs */}
+        <div className={`flex items-center p-0.5 rounded-xl border text-xs font-mono shadow-xs select-none ${
+          isLight 
+            ? 'bg-slate-100/90 border-slate-300' 
+            : 'bg-[#060F24] border-slate-700/80 shadow-inner'
+        }`}>
+          <div className="flex items-center space-x-1.5 px-2 text-[10.5px] font-bold uppercase tracking-wider text-slate-400 shrink-0">
+            <Radio size={13} className="text-cyan-400 animate-pulse" />
+            <span className="hidden lg:inline font-bold">AIS-140:</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            {/* Tab 1: SOS Panic Button Queue */}
+            <button
+              type="button"
+              onClick={() => setShowSosModal(true)}
+              className="flex items-center space-x-1 px-2 py-1 rounded-lg text-[11px] font-bold font-mono bg-rose-950/80 hover:bg-rose-900 border border-rose-600/70 text-rose-300 shadow-sm transition cursor-pointer"
+              title="Open AIS-140 SOS Panic Button Emergency Queue (MoRTH / ERSS 112)"
+            >
+              <AlertOctagon size={11} className="text-rose-400 animate-pulse shrink-0" />
+              <span>SOS Panic</span>
+              <span className="bg-rose-600 text-white text-[8.5px] px-1 py-0.2 rounded-full font-black animate-pulse">1</span>
+            </button>
+
+            {/* Tab 2: RTO Fitment Certificate */}
+            <button
+              type="button"
+              onClick={() => setShowFitmentModal(true)}
+              className={`flex items-center space-x-1 px-2 py-1 rounded-lg text-[11px] font-bold font-mono transition cursor-pointer ${
+                isLight 
+                  ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300' 
+                  : 'bg-amber-950/70 hover:bg-amber-900/80 border border-amber-600/50 text-amber-300'
+              }`}
+              title="Generate MoRTH Form 22 AIS-140 RTO Fitment Certificate with QR Code"
+            >
+              <FileCheck size={11} className="text-amber-400 shrink-0" />
+              <span>Fitment Cert</span>
+            </button>
+
+            {/* Tab 3: State CDAC Sync Monitor */}
+            <button
+              type="button"
+              onClick={() => setShowCdacModal(true)}
+              className={`flex items-center space-x-1 px-2 py-1 rounded-lg text-[11px] font-bold font-mono transition cursor-pointer ${
+                isLight 
+                  ? 'bg-cyan-100 hover:bg-cyan-200 text-cyan-900 border border-cyan-300' 
+                  : 'bg-cyan-950/70 hover:bg-cyan-900/80 border border-cyan-600/50 text-cyan-300'
+              }`}
+              title="Monitor State Government (CDAC) Dual-IP Heartbeat Gateway"
+            >
+              <Activity size={11} className="text-emerald-400 shrink-0" />
+              <span>CDAC Sync</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+            </button>
+          </div>
+        </div>
+
         {/* Profile Plan Selector (Basic / Standard / Advanced) */}
         <div className={`flex items-center p-0.5 rounded-xl border text-xs font-mono shadow-xs select-none ${
           isLight 
@@ -235,6 +298,12 @@ export default function Navbar({
         </div>
       </div>
 
+      
+      {/* AIS-140 Compliance Suite Modals */}
+      <Ais140SosModal isOpen={showSosModal} onClose={() => setShowSosModal(false)} />
+      <Ais140FitmentModal isOpen={showFitmentModal} onClose={() => setShowFitmentModal(false)} />
+      <Ais140CdacModal isOpen={showCdacModal} onClose={() => setShowCdacModal(false)} />
+
       {/* Functionality Guide Modal */}
       <FunctionalityGuideModal 
         isOpen={showGuideModal}
