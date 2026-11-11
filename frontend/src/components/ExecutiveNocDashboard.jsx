@@ -10649,418 +10649,211 @@ export default function ExecutiveNocDashboard({
 
 
       {/* ========================================================================= */}
-
       {/* RIGHT VERTICAL PANEL: ALL ALERTS IN CHRONOLOGICAL ORDER (AUTO-SCROLL) */}
-
+      {/* Reduced to match left side panel width (w-60) */}
       {/* ========================================================================= */}
-
       <div 
-
-        className={`w-88 lg:w-96 xl:w-[410px] 2xl:w-[440px] ${isLight ? 'bg-white border-l border-slate-200' : 'bg-[#070D1F] border-l border-[#1E2E56]'} flex flex-col shrink-0 overflow-hidden shadow-2xl transition-colors duration-200`}
-
+        className={`w-60 ${isLight ? 'bg-white border-l border-slate-200' : 'bg-[#070D1F] border-l border-[#1E2E56]'} flex flex-col shrink-0 overflow-hidden shadow-2xl transition-all duration-200`}
       >
-
         {/* Right Header with Auto-Scroll Controls */}
-
-        <div className={`p-3 ${isLight ? 'bg-white border-b border-slate-200' : 'bg-[#0A1128] border-b border-[#1E2E56]'} flex items-center justify-between shrink-0`}>
-
-          <div className="flex items-center space-x-2">
-
-            <Bell size={16} className="text-rose-400 animate-pulse" />
-
-            <div>
-
+        <div className={`p-2.5 ${isLight ? 'bg-white border-b border-slate-200' : 'bg-[#0A1128] border-b border-[#1E2E56]'} shrink-0 space-y-2`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-1.5 min-w-0">
+              <Bell size={14} className="text-rose-400 animate-pulse shrink-0" />
               <span className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'} font-['Chakra_Petch']`}>
-
                 Alerts
-
               </span>
-
-              <span className={`ml-1.5 text-[10px] font-mono px-1.5 py-0.5 rounded ${isLight ? 'bg-rose-100 text-rose-800 border border-rose-300' : 'bg-rose-950 text-rose-300 border border-rose-800'} font-bold`}>
-
+              <span className={`text-[9.5px] font-mono px-1.5 py-0.5 rounded ${isLight ? 'bg-rose-100 text-rose-800 border border-rose-300' : 'bg-rose-950 text-rose-300 border border-rose-800'} font-bold whitespace-nowrap`}>
                 {alerts.filter(a => a.is_acknowledged === 0).length} Pending
-
               </span>
-
             </div>
 
-          </div>
-
-
-
-          {/* Auto-Scroll & Matrix Navigation Buttons */}
-
-          <div className="flex items-center space-x-1.5">
-
             <button
-
-              onClick={() => onNavigateToScreen && onNavigateToScreen('alert_matrix')}
-
-              className={`px-2 py-1 rounded text-[10px] font-mono font-bold flex items-center space-x-1 transition cursor-pointer shadow-xs ${
-
-                isLight 
-
-                  ? 'bg-cyan-100 hover:bg-cyan-200 text-cyan-900 border border-cyan-300' 
-
-                  : 'bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/50'
-
-              }`}
-
-              title="Click for Reports - Open Full Cross-Tabulated Alert & Report Audit Dashboard"
-
-            >
-
-              <Layers size={11} />
-
-              <span>Click for Reports ↗</span>
-
-            </button>
-
-            <button
-
               onClick={() => setAlertAutoScroll(!alertAutoScroll)}
-
-              className={`p-1 rounded text-[10px] font-mono flex items-center space-x-1 transition ${
-
+              className={`px-1.5 py-0.5 rounded text-[9.5px] font-mono flex items-center space-x-1 transition shrink-0 ${
                 alertAutoScroll 
-
                   ? (isLight ? 'bg-cyan-100 text-cyan-800 border border-cyan-300' : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40')
-
                   : (isLight ? 'bg-slate-200 text-slate-600' : 'bg-slate-800 text-slate-400')
-
               }`}
-
               title="Toggle Alert Feed Auto-Scroll (Pauses on Alert Hover)"
-
             >
-
-              {alertAutoScroll ? <Play size={10} className="fill-current" /> : <Pause size={10} />}
-
+              {alertAutoScroll ? <Play size={8} className="fill-current" /> : <Pause size={8} />}
               <span>{alertAutoScroll ? (isAlertHovered ? 'Paused' : 'Auto') : 'Off'}</span>
-
             </button>
-
           </div>
 
+          {/* Click for Reports button full-width in header */}
+          <button
+            onClick={() => onNavigateToScreen && onNavigateToScreen('alert_matrix')}
+            className={`w-full py-1.5 px-2 rounded text-[10px] font-mono font-bold flex items-center justify-center space-x-1.5 transition cursor-pointer shadow-xs ${
+              isLight 
+                ? 'bg-cyan-100 hover:bg-cyan-200 text-cyan-900 border border-cyan-300' 
+                : 'bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/50'
+            }`}
+            title="Click for Reports - Open Full Cross-Tabulated Alert & Report Audit Dashboard"
+          >
+            <Layers size={11} />
+            <span>Click for Reports ↗</span>
+          </button>
         </div>
-
-
 
         {/* Chronological Alert Cards Container with Auto-Scroll Ticker */}
-
         <div 
-
           ref={alertsScrollRef}
-
           onMouseEnter={() => setIsAlertHovered(true)}
-
           onMouseLeave={() => {
-
             setIsAlertHovered(false);
-
             setHoveredAlertId(null);
-
           }}
-
-          className="flex-1 p-2.5 overflow-y-auto space-y-2 relative"
-
+          className="flex-1 p-2 overflow-y-auto space-y-2 relative"
         >
-
           <div 
-
             className={`space-y-2 ${scrollClass}`}
-
             style={{
-
               animationPlayState: (!alertAutoScroll || isAlertHovered) ? 'paused' : 'running'
-
             }}
-
           >
-
             {/* Render alerts doubled when auto-scroll is active for smooth loop */}
-
             {[...alerts, ...(alertAutoScroll ? alerts : [])].map((alert, idx) => {
-
               const isAck = alert.is_acknowledged === 1;
-
               const cardKey = `${alert.id}-${idx}`;
-
               const isHoveredCard = hoveredAlertId === cardKey;
 
-
-
               const getBadgeClasses = (type) => {
-
                 switch (type) {
-
                   case 'FUEL_SIPHONING':
-
                   case 'COLD_TEMP':
-
                   case 'CARGO_TEMP_INCREASING':
-
                   case 'EWAY_EXPIRING':
-
                   case 'AXLE_OVERWEIGHT':
-
                   case 'EXCESSIVE_IDLE':
-
                     return isLight ? 'bg-rose-100 text-rose-800 border border-rose-300 font-bold' : 'bg-rose-950 text-rose-300 border border-rose-800 font-bold';
-
                   case 'REFUEL_DISCREPANCY':
-
                   case 'IDLE_ALERT':
-
                   case 'EXCESSIVE_STOPPAGE':
-
                   case 'HIGH_CPH':
-
                   case 'CHALLAN_PENDING':
-
                   case 'AXLE_IMBALANCE':
-
                     return isLight ? 'bg-amber-100 text-amber-800 border border-amber-300 font-bold' : 'bg-amber-950 text-amber-300 border border-amber-800 font-bold';
-
                   case 'HARSH_BRAKING':
-
                   case 'SHARP_CORNERING':
-
                   case 'HARSH_DRIVING':
-
                   case 'OVERSPEEDING_2X':
-
                     return isLight ? 'bg-orange-100 text-orange-800 border border-orange-300 font-bold' : 'bg-orange-950 text-orange-300 border border-orange-800 font-bold';
-
                   case 'REFUEL_SUCCESS':
-
                     return isLight ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold' : 'bg-emerald-950 text-emerald-300 border border-emerald-800 font-bold';
-
                   default:
-
                     return isLight ? 'bg-blue-100 text-blue-800 border border-blue-300 font-bold' : 'bg-blue-950 text-blue-300 border border-blue-800 font-bold';
-
                 }
-
               };
 
-
-
               return (
-
                 <div
-
                   key={cardKey}
-
                   onMouseEnter={() => {
-
                     setIsAlertHovered(true);
-
                     setHoveredAlertId(cardKey);
-
                   }}
-
                   onMouseLeave={() => {
-
                     setHoveredAlertId(null);
-
                   }}
-
-                  className={`p-2.5 rounded-xl border transition-all duration-200 text-xs space-y-1.5 cursor-pointer relative ${
-
+                  className={`p-2 rounded-xl border transition-all duration-200 text-xs space-y-1.5 cursor-pointer relative ${
                     isHoveredCard
-
                       ? (isLight ? 'bg-cyan-50/90 border-cyan-500 ring-2 ring-cyan-400 shadow-md scale-[1.015] z-10' : 'bg-[#122347] border-cyan-400 ring-2 ring-cyan-500/60 shadow-xl shadow-cyan-950/80 scale-[1.015] z-10')
-
                       : isAck
-
                       ? (isLight ? 'bg-slate-50/90 border-slate-200 opacity-75' : 'bg-[#0B152A]/80 border-slate-800/80 opacity-75')
-
                       : (isLight ? 'bg-white border-rose-300 shadow-sm hover:border-rose-400' : 'bg-[#101E3D] border-rose-600/60 shadow-lg shadow-rose-950/40 hover:border-rose-400')
-
                   }`}
-
                 >
-
                   {/* Top Alert Tag & Chronological Timestamp */}
-
                   <div className="flex items-center justify-between font-mono">
-
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase ${getBadgeClasses(alert.type)}`}>
-
+                    <span className={`text-[8.5px] px-1 py-0.5 rounded uppercase font-bold tracking-tight ${getBadgeClasses(alert.type)}`}>
                       {alert.type.replace(/_/g, ' ')}
-
                     </span>
-
-                    <span className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>{alert.timestamp}</span>
-
+                    <span className={`text-[9.5px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>{alert.timestamp}</span>
                   </div>
-
-
 
                   {/* Title & Registration */}
-
                   <div>
-
-                    <div className={`font-bold ${isLight ? 'text-slate-900' : 'text-slate-100'} flex items-center justify-between`}>
-
-                      <span className="truncate pr-1">{alert.title}</span>
-
-                      <span className={`text-[11px] font-mono ${isLight ? 'text-cyan-700 font-bold' : 'text-cyan-400'} shrink-0`}>{alert.reg_no}</span>
-
+                    <div className={`font-bold ${isLight ? 'text-slate-900' : 'text-slate-100'} flex items-start justify-between gap-1`}>
+                      <span className="text-[11px] font-semibold leading-tight">{alert.title}</span>
+                      <span className={`text-[10px] font-mono ${isLight ? 'text-cyan-700 font-bold' : 'text-cyan-400'} shrink-0 whitespace-nowrap`}>{alert.reg_no}</span>
                     </div>
-
-                    <p className={`text-[11px] ${isLight ? 'text-slate-600' : 'text-slate-300'} leading-tight mt-0.5`}>
-
+                    <p className={`text-[10px] ${isLight ? 'text-slate-600' : 'text-slate-300'} leading-tight mt-1`}>
                       {formatStandardizedAlertMessage(alert)}
-
                     </p>
-
                   </div>
-
-
 
                   {/* Metric Value & Location */}
-
-                  <div className={`flex items-center justify-between text-[10px] font-mono ${isLight ? 'text-slate-500 border-slate-200' : 'text-slate-400 border-slate-700/60'} pt-1 border-t`}>
-
-                    <span className={`${isLight ? 'text-amber-800 font-bold' : 'text-amber-300 font-semibold'}`}>{alert.metric_value}</span>
-
-                    <span className="truncate max-w-[150px]">{alert.location}</span>
-
+                  <div className={`flex items-center justify-between text-[9px] font-mono ${isLight ? 'text-slate-500 border-slate-200' : 'text-slate-400 border-slate-700/60'} pt-1 border-t gap-1`}>
+                    <span className={`${isLight ? 'text-amber-800 font-bold' : 'text-amber-300 font-semibold'} shrink-0`}>{alert.metric_value}</span>
+                    <span className="truncate text-right">{alert.location}</span>
                   </div>
 
-
-
-                  {/* Interactive Acknowledge Button: RED to GREEN Requirement! */}
-
-                  <div className="pt-1">
-
+                  {/* Interactive Acknowledge Button */}
+                  <div className="pt-0.5">
                     {isAck ? (
-
-                      <div className={`w-full flex items-center justify-between px-2.5 py-1 rounded ${isLight ? 'bg-emerald-50 border border-emerald-300 text-emerald-800' : 'bg-emerald-950/80 border border-emerald-500/60 text-emerald-300'} font-mono font-bold text-[10px]`}>
-
+                      <div className={`w-full flex items-center justify-between px-2 py-1 rounded ${isLight ? 'bg-emerald-50 border border-emerald-300 text-emerald-800' : 'bg-emerald-950/80 border border-emerald-500/60 text-emerald-300'} font-mono font-bold text-[9px]`}>
                         <span className="flex items-center space-x-1">
-
-                          <CheckCircle2 size={12} className={isLight ? 'text-emerald-600' : 'text-emerald-400'} />
-
+                          <CheckCircle2 size={11} className={isLight ? 'text-emerald-600' : 'text-emerald-400'} />
                           <span>ACKNOWLEDGED</span>
-
                         </span>
-
-                        <span className={`text-[9px] font-normal ${isLight ? 'text-emerald-600' : 'text-emerald-400'}`}>
-
+                        <span className={`text-[8.5px] font-normal truncate max-w-[70px] ${isLight ? 'text-emerald-600' : 'text-emerald-400'}`}>
                           {alert.acknowledged_by || 'Logged'}
-
                         </span>
-
                       </div>
-
                     ) : (
-
                       <button
-
                         onClick={(e) => {
-
                           e.stopPropagation();
-
                           handleAcknowledge(alert.id);
-
                         }}
-
                         disabled={acknowledgingId === alert.id}
-
-                        className="w-full py-1.5 px-3 rounded bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-mono font-bold text-xs uppercase tracking-wider flex items-center justify-center space-x-1.5 shadow-md shadow-red-950 transition transform hover:scale-[1.01]"
-
+                        className="w-full py-1 px-2 rounded bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-mono font-bold text-[10px] uppercase tracking-wider flex items-center justify-center space-x-1 shadow-sm shadow-red-950 transition cursor-pointer"
                       >
-
                         {acknowledgingId === alert.id ? (
-
-                          <RefreshCw size={13} className="animate-spin text-white" />
-
+                          <RefreshCw size={11} className="animate-spin text-white" />
                         ) : (
-
-                          <Check size={13} className="stroke-[3]" />
-
+                          <Check size={11} className="stroke-[3]" />
                         )}
-
                         <span>ACKNOWLEDGE ALERT</span>
-
                       </button>
-
                     )}
-
                   </div>
-
                 </div>
-
               );
-
             })}
-
           </div>
-
         </div>
-
-
 
         {/* Real-time Telemetry Stream Diagnostic Footer Bar to Anchor Bottom */}
-
-        <div className={`p-2.5 border-t shrink-0 ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#091124] border-[#1E2E56]'}`}>
-
-          <div className="flex items-center justify-between text-[10px] font-mono mb-1.5">
-
-            <span className="flex items-center space-x-1.5 text-emerald-400 font-bold">
-
+        <div className={`p-2 border-t shrink-0 ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#091124] border-[#1E2E56]'}`}>
+          <div className="flex items-center justify-between text-[9.5px] font-mono mb-1">
+            <span className="flex items-center space-x-1 text-emerald-400 font-bold">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-
-              <span>TELEMETRY STREAM: LIVE</span>
-
+              <span>STREAM: LIVE</span>
             </span>
-
             <span className={`${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-
-              {alerts.length} Total Events
-
+              {alerts.length} Events
             </span>
-
           </div>
 
-          <div className={`p-2 rounded-lg text-[9.5px] font-mono ${isLight ? 'bg-white border border-slate-200 text-slate-600' : 'bg-[#060D1E] border border-slate-800 text-slate-400'} flex items-center justify-between`}>
-
+          <div className={`p-1.5 rounded text-[8.5px] font-mono ${isLight ? 'bg-white border border-slate-200 text-slate-600' : 'bg-[#060D1E] border border-slate-800 text-slate-400'} flex items-center justify-between gap-1`}>
             <div>
-
-              <span className="text-slate-500">CAN Bus: </span>
-
-              <span className="text-cyan-400 font-bold">128/min</span>
-
+              <span className="text-slate-500">CAN: </span>
+              <span className="text-cyan-400 font-bold">128/m</span>
             </div>
-
             <div>
-
-              <span className="text-slate-500">Audit Status: </span>
-
+              <span className="text-slate-500">Audit: </span>
               <span className="text-emerald-400 font-bold">Active</span>
-
             </div>
-
             <div>
-
-              <span className="text-slate-500">Loss Index: </span>
-
+              <span className="text-slate-500">Loss: </span>
               <span className="text-amber-400 font-bold">₹1.42L</span>
-
             </div>
-
           </div>
-
         </div>
-
       </div>
-
-
-
-      {/* ========================================================================= */}
 
       {/* MODALS */}
 
