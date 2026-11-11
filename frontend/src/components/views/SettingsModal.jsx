@@ -87,11 +87,12 @@ export default function SettingsModal({ initialTab = 'vehicle_reg', onClose, onV
               <Settings size={18} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white uppercase font-['Chakra_Petch']">
-                Axona System Settings & Master Configuration
+              <h2 className="text-base font-bold text-white uppercase font-['Chakra_Petch'] flex items-center gap-2">
+                <span>Settings Dashboard</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-normal">UNIFIED CONFIG</span>
               </h2>
-              <p className="text-[10px] text-slate-400 font-mono">
-                RBAC Permissions • Vehicle One-Time Baseline Setup • Non-Linear Tank Calibration
+              <p className="text-[10.5px] text-slate-400 font-mono">
+                Vehicle Registration • Integrations & IoT Sensors • RBAC Permissions • Tank Calibration
               </p>
             </div>
           </div>
@@ -112,7 +113,7 @@ export default function SettingsModal({ initialTab = 'vehicle_reg', onClose, onV
             }`}
           >
             <Truck size={14} />
-            <span>B. Vehicle Registration (One-Time Parameters)</span>
+            <span>Vehicle Registration & Baselines</span>
           </button>
 
           <button
@@ -124,7 +125,7 @@ export default function SettingsModal({ initialTab = 'vehicle_reg', onClose, onV
             }`}
           >
             <ShieldCheck size={14} />
-            <span>A. RBAC (Roles & Permissions)</span>
+            <span>RBAC Permissions</span>
           </button>
 
           <button
@@ -136,7 +137,7 @@ export default function SettingsModal({ initialTab = 'vehicle_reg', onClose, onV
             }`}
           >
             <Fuel size={14} />
-            <span>C. Tank Calibration Table</span>
+            <span>Tank Calibration Table</span>
           </button>
 
           <button
@@ -148,7 +149,7 @@ export default function SettingsModal({ initialTab = 'vehicle_reg', onClose, onV
             }`}
           >
             <Cpu size={14} />
-            <span>D. Integrations & IoT Sensors</span>
+            <span>Integrations (Modbus, CAN & IoT)</span>
           </button>
         </div>
 

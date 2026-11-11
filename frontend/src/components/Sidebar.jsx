@@ -138,80 +138,39 @@ export default function Sidebar({ activeView, setActiveView, onOpenSettings, set
         </div>
       </div>
 
-      {/* Bottom Section: Settings & Integrations Dashboard */}
+      {/* Bottom Section: Single Unified Settings Dashboard */}
       <div className={`p-2 border-t ${isLight ? 'border-slate-200 bg-slate-50' : 'border-[#1E2E56] bg-[#070D1F]'}`}>
         <div className={`px-1.5 mb-1.5 text-[10.5px] font-bold uppercase tracking-wider ${isLight ? 'text-slate-600' : 'text-slate-300'} font-mono`}>
-          System Configuration & Settings
+          System Configuration
         </div>
 
-        {/* Integrations Dashboard inside Settings */}
-        <button
-          onClick={() => onOpenSettings('integrations')}
-          className={`w-full flex items-center justify-between px-2 py-1.5 mb-1 rounded-lg text-left text-xs transition group shadow-xs cursor-pointer ${
-            isLight 
-              ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200' 
-              : 'text-slate-200 hover:bg-[#0D1730] hover:text-white border border-purple-800/60 bg-purple-950/20'
-          }`}
-          title="Open Integrations & IoT Sensors Gateway inside Settings"
-        >
-          <div className="flex items-center space-x-2 truncate">
-            <Cpu size={16} className={`${isLight ? 'text-purple-600' : 'text-purple-400'} group-hover:rotate-12 transition shrink-0`} />
-            <div className="truncate min-w-0">
-              <div className={`font-bold ${isLight ? 'text-purple-950' : 'text-purple-200'} truncate text-[12px] leading-tight`}>Integrations Dashboard</div>
-              <div className={`text-[10px] ${isLight ? 'text-purple-700/80' : 'text-slate-400'} truncate leading-tight mt-0.5`}>Modbus, CANBus & IoT</div>
-            </div>
-          </div>
-          <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-mono font-bold ${
-            isLight ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-          } shrink-0 ml-1`}>
-            ONLINE
-          </span>
-        </button>
-
-        {/* Vehicle Registration */}
+        {/* Single Settings Dashboard Button */}
         <button
           onClick={() => onOpenSettings('vehicle_reg')}
-          className={`w-full flex items-center justify-between px-2 py-1 mb-1 rounded-lg text-left text-xs transition cursor-pointer ${
+          className={`w-full flex items-center justify-between px-2.5 py-2.5 rounded-xl text-left transition group cursor-pointer shadow-sm ${
             isLight 
-              ? 'bg-white hover:bg-slate-100 text-slate-800 border border-slate-300' 
-              : 'text-slate-300 hover:bg-[#0D1730] hover:text-white border border-slate-700/60'
+              ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300' 
+              : 'bg-[#0D1730] hover:bg-[#152347] text-slate-200 hover:text-white border border-[#1E2E56] hover:border-cyan-500/50'
           }`}
+          title="Open Unified Settings Dashboard (Vehicle Registration, Integrations, RBAC & Calibration)"
         >
-          <div className="flex items-center space-x-2 truncate">
-            <Settings size={15} className={`${isLight ? 'text-cyan-700' : 'text-cyan-400'} shrink-0`} />
-            <div className="truncate min-w-0">
-              <div className={`font-bold ${isLight ? 'text-slate-800' : 'text-slate-200'} text-[12px] leading-tight`}>Vehicle Registration</div>
-              <div className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'} truncate leading-tight mt-0.5`}>Setup & Baseline Rules</div>
+          <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+            <div className={`p-2 rounded-lg ${isLight ? 'bg-cyan-100 text-cyan-800' : 'bg-cyan-950/60 text-cyan-400 border border-cyan-800/60'} group-hover:rotate-45 transition duration-300 shrink-0`}>
+              <Settings size={18} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className={`font-bold ${isLight ? 'text-slate-900' : 'text-white'} text-[13px] leading-tight`}>Settings</div>
+              <div className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'} truncate leading-tight mt-0.5`}>
+                Integrations, Fleet & Rules
+              </div>
             </div>
           </div>
-          <span className={`text-[10px] ${isLight ? 'text-cyan-700' : 'text-cyan-400'} font-mono font-bold shrink-0`}>B</span>
+          <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase ${
+            isLight ? 'bg-cyan-100 text-cyan-800 border border-cyan-300' : 'bg-cyan-950 text-cyan-300 border border-cyan-800'
+          } shrink-0 ml-1.5`}>
+            CONFIG
+          </span>
         </button>
-
-        <div className="grid grid-cols-2 gap-1 mb-1">
-          <button
-            onClick={() => onOpenSettings('rbac')}
-            className={`flex items-center space-x-1.5 px-2 py-1.5 rounded text-[11px] font-bold transition truncate cursor-pointer ${
-              isLight 
-                ? 'bg-white hover:bg-slate-100 text-slate-700 hover:text-cyan-800 border border-slate-300' 
-                : 'text-slate-300 hover:bg-[#0D1730] hover:text-cyan-300 border border-slate-800'
-            }`}
-          >
-            <ShieldCheck size={13} className={`${isLight ? 'text-emerald-600' : 'text-emerald-400'} shrink-0`} />
-            <span className="truncate">A. RBAC</span>
-          </button>
-
-          <button
-            onClick={() => onOpenSettings('calibration')}
-            className={`flex items-center space-x-1.5 px-2 py-1.5 rounded text-[11px] font-bold transition truncate cursor-pointer ${
-              isLight 
-                ? 'bg-white hover:bg-slate-100 text-slate-700 hover:text-cyan-800 border border-slate-300' 
-                : 'text-slate-300 hover:bg-[#0D1730] hover:text-cyan-300 border border-slate-800'
-            }`}
-          >
-            <Fuel size={13} className={`${isLight ? 'text-amber-600' : 'text-amber-400'} shrink-0`} />
-            <span className="truncate">C. Calib</span>
-          </button>
-        </div>
 
         {/* Axona Version watermark */}
         <div className={`mt-2 pt-2 border-t ${isLight ? 'border-slate-200 text-slate-500' : 'border-slate-800/80 text-slate-400'} flex items-center justify-between text-[10px] font-mono`}>
