@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Search,
   Crosshair,
@@ -24,15 +24,30 @@ export const LiveTrackingView: React.FC = () => {
   const [showTrail, setShowTrail] = useState<boolean>(true);
   const [trailPoints, setTrailPoints] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const selectedVehicleIdRef = useRef<string | null>(null);
+  selectedVehicleIdRef.current = selectedVehicleId;
+
+  const rememberTrailPoint = (point: { latitude?: number; longitude?: number; speed?: number; heading?: number }) => {
+    if (point.latitude == null || point.longitude == null) return;
+    setTrailPoints(tp => {
+      const last = tp[tp.length - 1];
+      if (last && last.latitude === point.latitude && last.longitude === point.longitude && last.speed === point.speed) {
+        return tp;
+      }
+      return [...tp, point];
+    });
+  };
 
   // Fetch initial live positions
   const fetchVehicles = async () => {
     try {
       const data = await apiFetch<VehicleLocation[]>('/tracking/live');
       setVehicles(data);
-      if (data.length > 0 && !selectedVehicleId) {
+      if (data.length > 0 && !selectedVehicleIdRef.current) {
         setSelectedVehicleId(data[0].vehicle_id);
       }
+      const selected = data.find(v => v.vehicle_id === (selectedVehicleIdRef.current || data[0]?.vehicle_id));
+      if (selected) rememberTrailPoint(selected);
     } catch (err) {
       console.error('Error fetching live positions:', err);
     } finally {
@@ -46,28 +61,27 @@ export const LiveTrackingView: React.FC = () => {
     // Subscribe to WebSocket real-time location stream
     const unsubscribe = telematicsWS.subscribe(msg => {
       if (msg.type === 'LOCATION_UPDATE') {
-        const { vehicleId, latitude, longitude, speed, heading, movementStatus } = msg.data;
+        const { vehicleId, latitude, longitude, speed, heading, movementStatus, ignition } = msg.data;
         setVehicles(prev =>
           prev.map(v =>
             v.vehicle_id === vehicleId
-              ? { ...v, latitude, longitude, speed, heading, movement_status: movementStatus }
+              ? { ...v, latitude, longitude, speed, heading, ignition: ignition ?? v.ignition, movement_status: movementStatus }
               : v
           )
         );
 
-        // If this is currently selected vehicle, append to trail
-        if (selectedVehicleId === vehicleId) {
-          setTrailPoints(tp => [...tp, { latitude, longitude }]);
+        if ((selectedVehicleIdRef.current || vehicleId) === vehicleId) {
+          rememberTrailPoint({ latitude, longitude, speed, heading });
         }
       }
     });
 
-    const poll = setInterval(fetchVehicles, 6000);
+    const poll = setInterval(fetchVehicles, 5000);
     return () => {
       unsubscribe();
       clearInterval(poll);
     };
-  }, [selectedVehicleId]);
+  }, []);
 
   // Fetch trail when vehicle changes
   useEffect(() => {

@@ -3,6 +3,7 @@ import { frameSentence, publicCanonical } from './canonicalTelemetry.js';
 import { normalizePayload } from './adapters/registry.js';
 import { withImmediateTransaction } from './transaction.js';
 import { telemetryRepository } from '../db/repositories/telemetryRepository.js';
+import { broadcastWS } from '../services/liveBroadcast.js';
 
 const recentPacketCache = new Map();
 
@@ -281,6 +282,23 @@ export function ingestTelemetry(input, meta = {}) {
   if (outcome.status === 'PROCESSED' && cacheKey) {
     recentPacketCache.set(cacheKey, nowMs);
     if (recentPacketCache.size > 2000) recentPacketCache.clear();
+  }
+
+  if (outcome.status === 'PROCESSED' && outcome.vehicle_id) {
+    broadcastWS({
+      type: 'LOCATION_UPDATE',
+      data: {
+        vehicleId: outcome.vehicle_id,
+        imei: outcome.imei,
+        latitude: outcome.latitude,
+        longitude: outcome.longitude,
+        speed: outcome.speed,
+        heading: outcome.heading,
+        ignition: outcome.ignition,
+        movementStatus: outcome.movementStatus,
+        timestamp: new Date().toISOString()
+      }
+    });
   }
 
   return outcome;

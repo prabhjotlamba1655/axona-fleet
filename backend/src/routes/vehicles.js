@@ -166,6 +166,13 @@ router.post('/', authorize(['super_admin', 'company_admin', 'individual_owner'])
         return res.status(400).json({ error: `GPS Device IMEI ${cleanIMEI} is already allocated to another tenant account.` });
       }
       deviceId = existingDevice.id;
+      db.run(`
+        UPDATE gps_devices
+        SET manufacturer_id = COALESCE(?, manufacturer_id),
+            model = COALESCE(?, model),
+            sim_number = COALESCE(?, sim_number)
+        WHERE id = ?
+      `, [device_manufacturer_id || null, device_model || null, sim_number || null, deviceId]);
     } else {
       // Create new device
       deviceId = `dev_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -200,13 +207,6 @@ router.post('/', authorize(['super_admin', 'company_admin', 'individual_owner'])
     installation_date || new Date().toISOString().split('T')[0],
     speed_limit || 80.0
   ]);
-
-  // Set initial location (Pune default coordinates)
-  db.run(`
-    INSERT INTO latest_vehicle_locations (
-      vehicle_id, device_id, latitude, longitude, speed, heading, ignition, movement_status, main_power, address, gps_time
-    ) VALUES (?, ?, 18.5204, 73.8567, 0, 0, 0, 'stopped', 1, 'Registered Depot Base', datetime('now'))
-  `, [vehicleId, deviceId]);
 
   res.status(201).json({
     message: 'Vehicle registered successfully with AIS-140 device mapping',
@@ -256,15 +256,15 @@ router.put('/:id', authorize(['super_admin', 'company_admin', 'individual_owner'
     WHERE id = ?
   `, [
     registration_number ? registration_number.toUpperCase().trim() : null,
-    category_id,
-    make,
-    model,
-    manufacturing_year,
-    owner_name,
-    owner_phone,
-    emergency_contact_phone,
-    speed_limit,
-    is_active,
+    category_id ?? null,
+    make ?? null,
+    model ?? null,
+    manufacturing_year ?? null,
+    owner_name ?? null,
+    owner_phone ?? null,
+    emergency_contact_phone ?? null,
+    speed_limit ?? null,
+    is_active === undefined || is_active === null ? null : (is_active ? 1 : 0),
     id
   ]);
 
@@ -352,11 +352,6 @@ router.post('/bulk-import', authorize(['super_admin', 'company_admin']), (req, r
         devId,
         item.speed_limit || 80.0
       ]);
-
-      db.run(`
-        INSERT INTO latest_vehicle_locations (vehicle_id, device_id, latitude, longitude, speed, heading, ignition, movement_status, main_power, address, gps_time)
-        VALUES (?, ?, 18.5204, 73.8567, 0, 0, 0, 'stopped', 1, 'Depot Yard', datetime('now'))
-      `, [vehicleId, devId]);
 
       imported++;
     } catch (e) {

@@ -26,6 +26,9 @@ import driverIntelligenceRoutes from './routes/driverIntelligence.js';
 import maintenanceRoutes from './routes/maintenance.js';
 import { startGPSSimulator, stopGPSSimulator } from './services/gpsSimulator.js';
 import { startTeltonikaTcpServer, stopTeltonikaTcpServer } from './services/teltonikaTcpServer.js';
+import { addLiveClient, removeLiveClient, broadcastWS } from './services/liveBroadcast.js';
+
+export { broadcastWS };
 
 dotenv.config();
 
@@ -93,11 +96,9 @@ app.use((err, req, res, next) => {
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws/telematics' });
 
-const clients = new Set();
-
 wss.on('connection', (ws, req) => {
-  clients.add(ws);
-  console.log(`[Axona WS] New client connected. Total clients: ${clients.size}`);
+  const connected = addLiveClient(ws);
+  console.log(`[Axona WS] New client connected. Total clients: ${connected}`);
 
   // Send initial welcome & connection ack
   ws.send(JSON.stringify({
@@ -118,29 +119,15 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('close', () => {
-    clients.delete(ws);
-    console.log(`[Axona WS] Client disconnected. Remaining: ${clients.size}`);
+    const remaining = removeLiveClient(ws);
+    console.log(`[Axona WS] Client disconnected. Remaining: ${remaining}`);
   });
 
   ws.on('error', (err) => {
     console.warn('[Axona WS] Client error:', err.message);
-    clients.delete(ws);
+    removeLiveClient(ws);
   });
 });
-
-// Broadcast helper
-export function broadcastWS(payload) {
-  const json = JSON.stringify(payload);
-  for (const client of clients) {
-    if (client.readyState === WebSocket.OPEN) {
-      try {
-        client.send(json);
-      } catch (err) {
-        console.warn('WS send failed:', err.message);
-      }
-    }
-  }
-}
 
 // Start HTTP Server
 db.get('SELECT 1 AS ready');
