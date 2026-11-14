@@ -7,6 +7,19 @@ import db from '../db/database.js';
  * Supports date ranges up to 90 days.
  */
 
+// Helper to normalize YYYY-MM-DD to full timestamp boundaries
+export function normalizeDateRange(startDate, endDate) {
+  let s = startDate;
+  let e = endDate;
+  if (s && /^\d{4}-\d{2}-\d{2}$/.test(String(s).trim())) {
+    s = String(s).trim() + ' 00:00:00';
+  }
+  if (e && /^\d{4}-\d{2}-\d{2}$/.test(String(e).trim())) {
+    e = String(e).trim() + ' 23:59:59';
+  }
+  return { startDate: s, endDate: e };
+}
+
 // Helper to validate maximum 90-day interval
 export function validate90DaysRange(startDate, endDate) {
   if (!startDate || !endDate) return null;
@@ -26,17 +39,24 @@ export class ReportsService {
   /**
    * 1. Vehicle Movement Report (Up to 90 days)
    */
-  static getVehicleMovementReport(tenantId, { vehicleId, startDate, endDate }) {
+  static getVehicleMovementReport(tenantId, filter = {}) {
+    const { startDate, endDate } = normalizeDateRange(filter.startDate, filter.endDate);
+    const { vehicleId } = filter;
+
     let sql = `
       SELECT h.id, v.registration_number, c.name as category, h.latitude, h.longitude,
              h.speed, h.heading, h.ignition, h.main_power, h.address, h.gps_time
       FROM gps_location_history h
       JOIN vehicles v ON v.id = h.vehicle_id
       LEFT JOIN vehicle_categories c ON v.category_id = c.id
-      WHERE v.tenant_id = ?
+      WHERE 1=1
     `;
-    const params = [tenantId];
+    const params = [];
 
+    if (tenantId) {
+      sql += ' AND v.tenant_id = ?';
+      params.push(tenantId);
+    }
     if (vehicleId) {
       sql += ' AND v.id = ?';
       params.push(vehicleId);
@@ -57,7 +77,10 @@ export class ReportsService {
   /**
    * 2. Trip History Report (Up to 90 days)
    */
-  static getTripHistoryReport(tenantId, { vehicleId, startDate, endDate }) {
+  static getTripHistoryReport(tenantId, filter = {}) {
+    const { startDate, endDate } = normalizeDateRange(filter.startDate, filter.endDate);
+    const { vehicleId } = filter;
+
     let sql = `
       SELECT t.*, v.registration_number, c.name as category,
              t.distance_km, t.duration_minutes, t.stoppage_minutes, t.stops_count,
@@ -65,10 +88,14 @@ export class ReportsService {
       FROM trips t
       JOIN vehicles v ON v.id = t.vehicle_id
       LEFT JOIN vehicle_categories c ON v.category_id = c.id
-      WHERE v.tenant_id = ?
+      WHERE 1=1
     `;
-    const params = [tenantId];
+    const params = [];
 
+    if (tenantId) {
+      sql += ' AND v.tenant_id = ?';
+      params.push(tenantId);
+    }
     if (vehicleId) {
       sql += ' AND v.id = ?';
       params.push(vehicleId);
@@ -89,7 +116,10 @@ export class ReportsService {
   /**
    * 3. Distance Travelled Report (Up to 90 days)
    */
-  static getDistanceTravelledReport(tenantId, { vehicleId, startDate, endDate }) {
+  static getDistanceTravelledReport(tenantId, filter = {}) {
+    const { startDate, endDate } = normalizeDateRange(filter.startDate, filter.endDate);
+    const { vehicleId } = filter;
+
     let tripFilter = 'WHERE 1=1';
     const tripParams = [];
 
@@ -114,10 +144,14 @@ export class ReportsService {
       LEFT JOIN (
         SELECT * FROM trips ${tripFilter}
       ) t ON t.vehicle_id = v.id
-      WHERE v.tenant_id = ?
+      WHERE 1=1
     `;
-    const params = [...tripParams, tenantId];
+    const params = [...tripParams];
 
+    if (tenantId) {
+      sql += ' AND v.tenant_id = ?';
+      params.push(tenantId);
+    }
     if (vehicleId) {
       sql += ' AND v.id = ?';
       params.push(vehicleId);
@@ -130,17 +164,24 @@ export class ReportsService {
   /**
    * 4. Overspeeding Report (Up to 90 days)
    */
-  static getOverspeedingReport(tenantId, { vehicleId, startDate, endDate }) {
+  static getOverspeedingReport(tenantId, filter = {}) {
+    const { startDate, endDate } = normalizeDateRange(filter.startDate, filter.endDate);
+    const { vehicleId } = filter;
+
     let sql = `
       SELECT s.*, v.registration_number, c.name as category,
              ROUND((s.speed - s.speed_limit), 1) as excess_speed
       FROM speed_alerts s
       JOIN vehicles v ON v.id = s.vehicle_id
       LEFT JOIN vehicle_categories c ON v.category_id = c.id
-      WHERE s.tenant_id = ?
+      WHERE 1=1
     `;
-    const params = [tenantId];
+    const params = [];
 
+    if (tenantId) {
+      sql += ' AND s.tenant_id = ?';
+      params.push(tenantId);
+    }
     if (vehicleId) {
       sql += ' AND v.id = ?';
       params.push(vehicleId);
@@ -161,7 +202,10 @@ export class ReportsService {
   /**
    * 5. Panic Button Report (MoRTH AIS-140 Mandated - Up to 90 days)
    */
-  static getPanicButtonReport(tenantId, { vehicleId, startDate, endDate }) {
+  static getPanicButtonReport(tenantId, filter = {}) {
+    const { startDate, endDate } = normalizeDateRange(filter.startDate, filter.endDate);
+    const { vehicleId } = filter;
+
     let sql = `
       SELECT p.*, v.registration_number, c.name as category,
              v.owner_name, v.owner_phone, v.emergency_contact_phone,
@@ -170,10 +214,14 @@ export class ReportsService {
       JOIN vehicles v ON v.id = p.vehicle_id
       LEFT JOIN vehicle_categories c ON v.category_id = c.id
       LEFT JOIN gps_devices d ON p.device_id = d.id
-      WHERE p.tenant_id = ?
+      WHERE 1=1
     `;
-    const params = [tenantId];
+    const params = [];
 
+    if (tenantId) {
+      sql += ' AND p.tenant_id = ?';
+      params.push(tenantId);
+    }
     if (vehicleId) {
       sql += ' AND v.id = ?';
       params.push(vehicleId);
@@ -194,7 +242,10 @@ export class ReportsService {
   /**
    * 6. GPS Device Health Report (Up to 90 days)
    */
-  static getDeviceHealthReport(tenantId, { vehicleId, startDate, endDate }) {
+  static getDeviceHealthReport(tenantId, filter = {}) {
+    const { startDate, endDate } = normalizeDateRange(filter.startDate, filter.endDate);
+    const { vehicleId } = filter;
+
     let sql = `
       SELECT e.*, d.imei, d.model, d.status as current_device_status,
              d.main_power_connected, d.backup_battery_pct, d.tamper_detected,
@@ -202,10 +253,14 @@ export class ReportsService {
       FROM device_health_events e
       JOIN gps_devices d ON e.device_id = d.id
       LEFT JOIN vehicles v ON e.vehicle_id = v.id
-      WHERE d.tenant_id = ?
+      WHERE 1=1
     `;
-    const params = [tenantId];
+    const params = [];
 
+    if (tenantId) {
+      sql += ' AND d.tenant_id = ?';
+      params.push(tenantId);
+    }
     if (vehicleId) {
       sql += ' AND v.id = ?';
       params.push(vehicleId);
@@ -213,6 +268,10 @@ export class ReportsService {
     if (startDate) {
       sql += ' AND e.created_at >= ?';
       params.push(startDate);
+    }
+    if (endDate) {
+      sql += ' AND e.created_at <= ?';
+      params.push(endDate);
     }
 
     sql += ' ORDER BY e.created_at DESC LIMIT 5000';
@@ -222,7 +281,10 @@ export class ReportsService {
   /**
    * 7. Geofence Report (Up to 90 days)
    */
-  static getGeofenceReport(tenantId, { vehicleId, startDate, endDate }) {
+  static getGeofenceReport(tenantId, filter = {}) {
+    const { startDate, endDate } = normalizeDateRange(filter.startDate, filter.endDate);
+    const { vehicleId } = filter;
+
     let sql = `
       SELECT e.*, g.name as geofence_name, g.fence_type,
              v.registration_number, c.name as category
@@ -230,10 +292,14 @@ export class ReportsService {
       JOIN geofences g ON e.geofence_id = g.id
       JOIN vehicles v ON e.vehicle_id = v.id
       LEFT JOIN vehicle_categories c ON v.category_id = c.id
-      WHERE g.tenant_id = ?
+      WHERE 1=1
     `;
-    const params = [tenantId];
+    const params = [];
 
+    if (tenantId) {
+      sql += ' AND g.tenant_id = ?';
+      params.push(tenantId);
+    }
     if (vehicleId) {
       sql += ' AND v.id = ?';
       params.push(vehicleId);
@@ -241,6 +307,10 @@ export class ReportsService {
     if (startDate) {
       sql += ' AND e.event_time >= ?';
       params.push(startDate);
+    }
+    if (endDate) {
+      sql += ' AND e.event_time <= ?';
+      params.push(endDate);
     }
 
     sql += ' ORDER BY e.event_time DESC LIMIT 5000';
@@ -251,7 +321,10 @@ export class ReportsService {
    * 8. Driver Intelligence & Behavior Report (Up to 90 days)
    * Captures Harsh Braking, Harsh Acceleration, Vehicle Tilt, Rash Driving, Overspeeding
    */
-  static getDriverIntelligenceReport(tenantId, { vehicleId, startDate, endDate, eventType }) {
+  static getDriverIntelligenceReport(tenantId, filter = {}) {
+    const { startDate, endDate } = normalizeDateRange(filter.startDate, filter.endDate);
+    const { vehicleId, eventType } = filter;
+
     let sql = `
       SELECT e.*, v.registration_number, v.make, v.model as vehicle_model,
              c.name as category, d.imei as device_imei
@@ -259,10 +332,14 @@ export class ReportsService {
       JOIN vehicles v ON e.vehicle_id = v.id
       LEFT JOIN vehicle_categories c ON v.category_id = c.id
       LEFT JOIN gps_devices d ON e.device_id = d.id
-      WHERE v.tenant_id = ?
+      WHERE 1=1
     `;
-    const params = [tenantId];
+    const params = [];
 
+    if (tenantId) {
+      sql += ' AND v.tenant_id = ?';
+      params.push(tenantId);
+    }
     if (vehicleId) {
       sql += ' AND v.id = ?';
       params.push(vehicleId);
@@ -290,7 +367,10 @@ export class ReportsService {
   /**
    * 9. Remote Immobilisation History (Up to 90 days)
    */
-  static getImmobilisationHistoryReport(tenantId, { vehicleId, startDate, endDate }) {
+  static getImmobilisationHistoryReport(tenantId, filter = {}) {
+    const { startDate, endDate } = normalizeDateRange(filter.startDate, filter.endDate);
+    const { vehicleId } = filter;
+
     let sql = `
       SELECT c.*, v.registration_number, v.make, v.model as vehicle_model,
              u.name as requested_by_user, u.email as user_email,
@@ -299,10 +379,14 @@ export class ReportsService {
       JOIN vehicles v ON c.vehicle_id = v.id
       JOIN users u ON c.user_id = u.id
       LEFT JOIN gps_devices d ON c.device_id = d.id
-      WHERE c.tenant_id = ?
+      WHERE 1=1
     `;
-    const params = [tenantId];
+    const params = [];
 
+    if (tenantId) {
+      sql += ' AND c.tenant_id = ?';
+      params.push(tenantId);
+    }
     if (vehicleId) {
       sql += ' AND v.id = ?';
       params.push(vehicleId);

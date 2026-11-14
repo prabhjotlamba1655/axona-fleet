@@ -106,14 +106,23 @@ router.get('/events', (req, res) => {
       params.push(severity);
     }
 
-    if (startDate) {
-      sql += ' AND e.event_time >= ?';
-      params.push(startDate);
+    let sDate = startDate;
+    let eDate = endDate;
+    if (sDate && /^\d{4}-\d{2}-\d{2}$/.test(sDate.trim())) {
+      sDate = sDate.trim() + ' 00:00:00';
+    }
+    if (eDate && /^\d{4}-\d{2}-\d{2}$/.test(eDate.trim())) {
+      eDate = eDate.trim() + ' 23:59:59';
     }
 
-    if (endDate) {
+    if (sDate) {
+      sql += ' AND e.event_time >= ?';
+      params.push(sDate);
+    }
+
+    if (eDate) {
       sql += ' AND e.event_time <= ?';
-      params.push(endDate);
+      params.push(eDate);
     }
 
     sql += ' ORDER BY e.event_time DESC LIMIT ?';

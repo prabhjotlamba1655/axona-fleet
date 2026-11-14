@@ -26,7 +26,8 @@ function jsonToCSV(items) {
 router.get('/:reportType', (req, res) => {
   const { reportType } = req.params;
   let { vehicleId, startDate, endDate, exportFormat, preset } = req.query;
-  const tenantId = req.user.tenant_id;
+  const isSuper = req.user.role === 'super_admin';
+  const tenantId = isSuper ? (req.query.tenantId || null) : req.user.tenant_id;
 
   // Handle Preset ranges
   if (preset) {

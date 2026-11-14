@@ -126,14 +126,23 @@ router.get('/', (req, res) => {
     params.push(vehicleId);
   }
 
-  if (startDate) {
-    sql += ' AND t.start_time >= ?';
-    params.push(startDate);
+  let sDate = startDate;
+  let eDate = endDate;
+  if (sDate && /^\d{4}-\d{2}-\d{2}$/.test(sDate.trim())) {
+    sDate = sDate.trim() + ' 00:00:00';
+  }
+  if (eDate && /^\d{4}-\d{2}-\d{2}$/.test(eDate.trim())) {
+    eDate = eDate.trim() + ' 23:59:59';
   }
 
-  if (endDate) {
+  if (sDate) {
+    sql += ' AND t.start_time >= ?';
+    params.push(sDate);
+  }
+
+  if (eDate) {
     sql += ' AND t.start_time <= ?';
-    params.push(endDate);
+    params.push(eDate);
   }
 
   sql += ' ORDER BY t.start_time DESC';
