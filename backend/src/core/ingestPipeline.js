@@ -4,6 +4,7 @@ import { normalizePayload } from './adapters/registry.js';
 import { withImmediateTransaction } from './transaction.js';
 import { telemetryRepository } from '../db/repositories/telemetryRepository.js';
 import { broadcastWS } from '../services/liveBroadcast.js';
+import GeofenceService from '../services/geofenceService.js';
 
 const recentPacketCache = new Map();
 
@@ -170,6 +171,13 @@ export function ingestTelemetry(input, meta = {}) {
         gpsTime
       });
 
+      GeofenceService.evaluateVehicleGeofences(
+        device.vehicle_id,
+        position.latitude,
+        position.longitude,
+        position.speedKmh
+      );
+
       if (state.panic === 1) {
         const panicId = telemetryRepository.insertPanic({
           tenantId: device.tenant_id,
@@ -205,6 +213,7 @@ export function ingestTelemetry(input, meta = {}) {
       if (device.speed_limit && position.speedKmh > device.speed_limit) {
         const recent = telemetryRepository.findRecentSpeedAlert(device.vehicle_id);
         if (!recent) {
+          const speedAddress = `Speed violation on route (${position.speedKmh} km/h in ${device.speed_limit} zone)`;
           telemetryRepository.insertSpeedAlert({
             tenantId: device.tenant_id,
             vehicleId: device.vehicle_id,
@@ -212,7 +221,32 @@ export function ingestTelemetry(input, meta = {}) {
             speedLimit: device.speed_limit,
             latitude: position.latitude,
             longitude: position.longitude,
-            address: `Speed violation on route (${position.speedKmh} km/h in ${device.speed_limit} zone)`,
+            address: speedAddress,
+            gpsTime
+          });
+          telemetryRepository.insertNotification({
+            tenantId: device.tenant_id,
+            vehicleId: device.vehicle_id,
+            title: `Speed Alert: ${device.registration_number}`,
+            message: `${device.registration_number} reached ${position.speedKmh} km/h. Limit is ${device.speed_limit} km/h.`,
+            type: 'overspeed'
+          });
+          telemetryRepository.insertDriverEvent({
+            tenantId: device.tenant_id,
+            vehicleId: device.vehicle_id,
+            deviceId: device.id,
+            eventType: 'OVERSPEEDING',
+            packetType: 'OS',
+            alertId: 17,
+            severity: position.speedKmh - device.speed_limit >= 20 ? 'CRITICAL' : 'WARNING',
+            metricValue: `${position.speedKmh} km/h`,
+            thresholdValue: `${device.speed_limit} km/h`,
+            speed: position.speedKmh,
+            heading: position.headingDegrees,
+            latitude: position.latitude,
+            longitude: position.longitude,
+            address: speedAddress,
+            driverName: device.owner_name || 'Fleet Operator',
             gpsTime
           });
         }

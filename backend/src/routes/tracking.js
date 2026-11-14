@@ -46,14 +46,38 @@ router.get('/dashboard-stats', (req, res) => {
     SELECT COUNT(id) as count FROM speed_alerts ${speedFilter}
   `, tenantParams);
 
-  // Recent 5 alerts for dashboard
+  // Recent alerts for the dashboard: panic and overspeed together
+  const recentTenant = user.role === 'super_admin' ? '' : 'AND p.tenant_id = ?';
+  const speedTenant = user.role === 'super_admin' ? '' : 'AND s.tenant_id = ?';
+  const geoTenant = user.role === 'super_admin' ? '' : 'AND g.tenant_id = ?';
+  const recentParams = user.role === 'super_admin' ? [] : [user.tenant_id, user.tenant_id, user.tenant_id];
   const recentAlerts = db.query(`
-    SELECT 'panic' as type, p.id, p.event_time, v.registration_number, 'Emergency SOS Triggered' as title, p.status, p.address
-    FROM panic_events p
-    JOIN vehicles v ON p.vehicle_id = v.id
-    ${user.role === 'super_admin' ? '' : 'WHERE p.tenant_id = ?'}
-    ORDER BY p.event_time DESC LIMIT 5
-  `, tenantParams);
+    SELECT * FROM (
+      SELECT 'panic' as type, p.id, p.event_time, v.registration_number,
+             'Emergency SOS Triggered' as title, p.status as status, p.address
+      FROM panic_events p
+      JOIN vehicles v ON p.vehicle_id = v.id
+      WHERE 1=1 ${recentTenant}
+      UNION ALL
+      SELECT 'overspeed' as type, s.id, s.event_time, v.registration_number,
+             ('Overspeed ' || s.speed || ' km/h') as title,
+             ('Limit ' || s.speed_limit) as status, s.address
+      FROM speed_alerts s
+      JOIN vehicles v ON s.vehicle_id = v.id
+      WHERE 1=1 ${speedTenant}
+      UNION ALL
+      SELECT 'geofence' as type, e.id, e.event_time, v.registration_number,
+             ('Geofence ' || e.event_type || ': ' || g.name) as title,
+             e.event_type as status,
+             (ROUND(e.latitude, 5) || ', ' || ROUND(e.longitude, 5)) as address
+      FROM geofence_events e
+      JOIN geofences g ON g.id = e.geofence_id
+      JOIN vehicles v ON v.id = e.vehicle_id
+      WHERE 1=1 ${geoTenant}
+    )
+    ORDER BY event_time DESC
+    LIMIT 8
+  `, recentParams);
 
   res.json({
     kpis: {

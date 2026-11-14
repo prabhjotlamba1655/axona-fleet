@@ -11,15 +11,17 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { apiFetch } from '../services/api';
-import { Geofence, Vehicle } from '../types';
+import { Geofence, Vehicle, VehicleLocation } from '../types';
 import FleetMap from '../components/FleetMap';
 
 export const GeofencingView: React.FC = () => {
   const [geofences, setGeofences] = useState<Geofence[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [liveVehicles, setLiveVehicles] = useState<VehicleLocation[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+  const [mapFocus, setMapFocus] = useState<[number, number] | null>(null);
 
   // New Geofence form
   const [newFence, setNewFence] = useState({
@@ -45,6 +47,13 @@ export const GeofencingView: React.FC = () => {
       const vData = await apiFetch<Vehicle[]>('/vehicles');
       setVehicles(vData);
 
+      const live = await apiFetch<VehicleLocation[]>('/tracking/live');
+      setLiveVehicles(live);
+      const located = live.find(v => v.latitude && v.longitude);
+      if (located) {
+        setMapFocus(current => current || [located.latitude, located.longitude]);
+      }
+
       const evData = await apiFetch<any[]>('/geofences/events');
       setEvents(evData);
     } catch (err) {
@@ -56,7 +65,32 @@ export const GeofencingView: React.FC = () => {
 
   useEffect(() => {
     fetchData();
+    const poll = setInterval(fetchData, 5000);
+    return () => clearInterval(poll);
   }, []);
+
+  const livePosition = (vehicleId: string) => liveVehicles.find(v => v.vehicle_id === vehicleId && v.latitude && v.longitude);
+
+  const openCreate = () => {
+    const located = liveVehicles.find(v => v.latitude && v.longitude);
+    const centerLat = located ? Number(located.latitude.toFixed(5)) : 18.5912;
+    const centerLng = located ? Number(located.longitude.toFixed(5)) : 73.7389;
+    if (located) setMapFocus([located.latitude, located.longitude]);
+    setNewFence({
+      name: '',
+      description: '',
+      fence_type: 'circle',
+      center_lat: centerLat,
+      center_lng: centerLng,
+      radius_meters: 1500,
+      coordinates_json: '',
+      alert_on_entry: true,
+      alert_on_exit: true,
+      speed_limit: 30,
+      vehicle_ids: located ? [located.vehicle_id] : vehicles.map(v => v.id)
+    });
+    setIsCreateModalOpen(true);
+  };
 
   const handleCreateGeofence = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,10 +119,18 @@ export const GeofencingView: React.FC = () => {
   const toggleVehicleAssignment = (vId: string) => {
     setNewFence(prev => {
       const exists = prev.vehicle_ids.includes(vId);
-      return {
-        ...prev,
-        vehicle_ids: exists ? prev.vehicle_ids.filter(id => id !== vId) : [...prev.vehicle_ids, vId]
-      };
+      const vehicle_ids = exists ? prev.vehicle_ids.filter(id => id !== vId) : [...prev.vehicle_ids, vId];
+      const live = livePosition(vId);
+      if (!exists && live) {
+        setMapFocus([live.latitude, live.longitude]);
+        return {
+          ...prev,
+          vehicle_ids,
+          center_lat: Number(live.latitude.toFixed(5)),
+          center_lng: Number(live.longitude.toFixed(5))
+        };
+      }
+      return { ...prev, vehicle_ids };
     });
   };
 
@@ -107,22 +149,7 @@ export const GeofencingView: React.FC = () => {
         </div>
 
         <button
-          onClick={() => {
-            setNewFence({
-              name: '',
-              description: '',
-              fence_type: 'circle',
-              center_lat: 18.5912,
-              center_lng: 73.7389,
-              radius_meters: 1500,
-              coordinates_json: '',
-              alert_on_entry: true,
-              alert_on_exit: true,
-              speed_limit: 30,
-              vehicle_ids: vehicles.map(v => v.id)
-            });
-            setIsCreateModalOpen(true);
-          }}
+          onClick={openCreate}
           className="px-3.5 py-1.5 text-xs font-semibold bg-sky-600 hover:bg-sky-700 text-white rounded-lg shadow-xs flex items-center space-x-1.5"
         >
           <Plus className="w-4 h-4" />
@@ -134,9 +161,19 @@ export const GeofencingView: React.FC = () => {
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4">
         <h2 className="text-sm font-bold text-slate-900 mb-2">Active Geofence Boundaries Map</h2>
         <FleetMap
-          vehicles={[]}
+          vehicles={liveVehicles}
           geofences={geofences}
+          focus={mapFocus}
           height="340px"
+          onMapClick={isCreateModalOpen ? (latitude, longitude) => {
+            setNewFence(prev => ({ ...prev, center_lat: latitude, center_lng: longitude }));
+            setMapFocus([latitude, longitude]);
+          } : undefined}
+          draftCircle={isCreateModalOpen && newFence.fence_type === 'circle' ? {
+            latitude: newFence.center_lat,
+            longitude: newFence.center_lng,
+            radiusMeters: newFence.radius_meters
+          } : null}
         />
       </div>
 
@@ -194,9 +231,10 @@ export const GeofencingView: React.FC = () => {
 
         {/* Right Col: Geofence Breach Events */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
             Recent Geofence Events
           </h3>
+          <p className="text-[11px] text-slate-400 mb-3">Entry and exit appear here, and on the dashboard, after the next GPS fix.</p>
 
           <div className="space-y-2.5 max-h-96 overflow-y-auto">
             {events.length === 0 ? (
@@ -302,6 +340,7 @@ export const GeofencingView: React.FC = () => {
                   />
                 </div>
               </div>
+              <p className="text-[11px] text-slate-400">Taken from the selected vehicle. Click the map to move the center.</p>
 
               <div className="pt-2">
                 <label className="block text-slate-700 font-bold mb-1">Assign Fleet Vehicles</label>

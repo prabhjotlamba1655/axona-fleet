@@ -176,6 +176,12 @@ describe('embedded sqlite architecture', { concurrency: false }, () => {
     const speeding = db.get(`SELECT speed, speed_limit FROM speed_alerts WHERE vehicle_id = 'veh_1'`);
     assert.equal(speeding.speed, 90);
     assert.equal(speeding.speed_limit, 65);
+    const speedNote = db.get(`SELECT notification_type FROM notifications WHERE vehicle_id = 'veh_1' AND notification_type = 'overspeed'`);
+    assert.equal(speedNote.notification_type, 'overspeed');
+    const speedEvent = db.get(`SELECT event_type, packet_type, alert_id FROM driver_intelligence_events WHERE vehicle_id = 'veh_1' AND event_type = 'OVERSPEEDING'`);
+    assert.equal(speedEvent.event_type, 'OVERSPEEDING');
+    assert.equal(speedEvent.packet_type, 'OS');
+    assert.equal(speedEvent.alert_id, 17);
 
     const teltonika = ingestTelemetry({
       protocol: 'teltonika',

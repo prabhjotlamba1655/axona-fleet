@@ -7,6 +7,7 @@ import {
   Wifi,
   WifiOff,
   AlertTriangle,
+  MapPin,
   Zap,
   ArrowRight,
   ShieldCheck,
@@ -336,21 +337,35 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTo, onSe
               {recentAlerts.length === 0 ? (
                 <div className="text-xs text-slate-400 py-4 text-center">No recent alerts recorded.</div>
               ) : (
-                recentAlerts.map(alert => (
-                  <div key={alert.id} className="p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 flex items-start space-x-2.5">
-                    <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                recentAlerts.map(alert => {
+                  const overspeed = alert.type === 'overspeed';
+                  const geofence = alert.type === 'geofence';
+                  const destination = geofence ? 'geofences' : overspeed ? 'driver-intelligence' : 'panic';
+                  return (
+                  <button
+                    key={alert.id}
+                    type="button"
+                    onClick={() => onNavigateTo(destination)}
+                    className="w-full text-left p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 flex items-start space-x-2.5 hover:bg-slate-100"
+                  >
+                    {geofence
+                      ? <MapPin className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
+                      : overspeed
+                        ? <Zap className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                        : <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-slate-900">{alert.registration_number}</span>
-                        <span className="text-[10px] font-semibold text-rose-600 px-1.5 py-0.2 bg-rose-50 rounded">
-                          {alert.status}
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.2 rounded ${geofence ? 'text-sky-700 bg-sky-50' : overspeed ? 'text-amber-700 bg-amber-50' : 'text-rose-600 bg-rose-50'}`}>
+                          {geofence ? alert.status : overspeed ? 'Overspeed' : alert.status}
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-600 truncate">{alert.title}</div>
                       <div className="text-[10px] text-slate-400 mt-0.5">{alert.address}</div>
                     </div>
-                  </div>
-                ))
+                  </button>
+                  );
+                })
               )}
             </div>
           </div>

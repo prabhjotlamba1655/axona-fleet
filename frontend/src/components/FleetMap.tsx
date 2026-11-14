@@ -20,6 +20,9 @@ interface FleetMapProps {
   center?: [number, number];
   zoom?: number;
   height?: string;
+  focus?: [number, number] | null;
+  onMapClick?: (latitude: number, longitude: number) => void;
+  draftCircle?: { latitude: number; longitude: number; radiusMeters: number } | null;
 }
 
 // Open-source map tile providers
@@ -58,7 +61,10 @@ export const FleetMap: React.FC<FleetMapProps> = ({
   currentReplayPoint,
   center = [18.5204, 73.8567], // Default Pune / Western India
   zoom = 12,
-  height = '500px'
+  height = '500px',
+  focus = null,
+  onMapClick,
+  draftCircle = null
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -68,6 +74,9 @@ export const FleetMap: React.FC<FleetMapProps> = ({
   const replayMarkerRef = useRef<L.Marker | null>(null);
   const geofenceLayersRef = useRef<L.LayerGroup | null>(null);
   const trailLayerRef = useRef<L.Polyline | null>(null);
+  const draftCircleRef = useRef<L.Circle | null>(null);
+  const onMapClickRef = useRef(onMapClick);
+  onMapClickRef.current = onMapClick;
 
   const [activeLayerKey, setActiveLayerKey] = useState<string>('osmStandard');
   const [showLayerMenu, setShowLayerMenu] = useState<boolean>(false);
@@ -95,6 +104,11 @@ export const FleetMap: React.FC<FleetMapProps> = ({
     L.control.zoom({ position: 'topright' }).addTo(map);
 
     geofenceLayersRef.current = L.layerGroup().addTo(map);
+    map.on('click', (event: L.LeafletMouseEvent) => {
+      if (onMapClickRef.current) {
+        onMapClickRef.current(Number(event.latlng.lat.toFixed(5)), Number(event.latlng.lng.toFixed(5)));
+      }
+    });
     mapInstanceRef.current = map;
 
     return () => {
@@ -102,6 +116,30 @@ export const FleetMap: React.FC<FleetMapProps> = ({
       mapInstanceRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !focus) return;
+    map.flyTo(focus, Math.max(map.getZoom(), 14), { animate: true });
+  }, [focus?.[0], focus?.[1]]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (draftCircleRef.current) {
+      map.removeLayer(draftCircleRef.current);
+      draftCircleRef.current = null;
+    }
+    if (!draftCircle) return;
+    draftCircleRef.current = L.circle([draftCircle.latitude, draftCircle.longitude], {
+      radius: draftCircle.radiusMeters || 1000,
+      color: '#0284C7',
+      dashArray: '6 4',
+      weight: 2,
+      fillColor: '#38BDF8',
+      fillOpacity: 0.18
+    }).addTo(map);
+  }, [draftCircle?.latitude, draftCircle?.longitude, draftCircle?.radiusMeters]);
 
   // Handle Open Source Map Tile Layer Switching
   const handleSwitchLayer = (layerKey: string) => {
