@@ -151,7 +151,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="px-4 py-3 bg-navy-900/60 border-b border-navy-850">
         <div className="flex items-center space-x-2 text-xs text-slate-300">
           <Building2 className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-          <span className="font-medium truncate">{user?.tenantName || 'Apex Commercial Logistics'}</span>
+          <span className="font-medium truncate">{user?.tenantName || 'No organization'}</span>
         </div>
       </div>
 

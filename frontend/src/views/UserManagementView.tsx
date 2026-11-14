@@ -27,6 +27,7 @@ export const UserManagementView: React.FC = () => {
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
+    password: '',
     phone: '',
     role_id: 'role_subuser',
     security_pin: '1234',
@@ -108,6 +109,7 @@ export const UserManagementView: React.FC = () => {
             setNewUser({
               name: '',
               email: '',
+              password: '',
               phone: '',
               role_id: roles[roles.length - 1]?.id || 'role_subuser',
               security_pin: '1234',
@@ -225,6 +227,19 @@ export const UserManagementView: React.FC = () => {
                   value={newUser.email}
                   onChange={e => setNewUser({ ...newUser, email: e.target.value })}
                   className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Password *</label>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  value={newUser.password}
+                  onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+                  className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50"
+                  autoComplete="new-password"
                 />
               </div>
 

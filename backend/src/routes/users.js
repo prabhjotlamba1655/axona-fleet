@@ -1,5 +1,6 @@
 import express from 'express';
 import db from '../db/database.js';
+import { hashPassword } from '../core/accounts.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -52,9 +53,12 @@ router.get('/roles', (req, res) => {
 
 // POST /api/users - Create new user
 router.post('/', authorize(['super_admin', 'company_admin']), (req, res) => {
-  const { name, email, phone, role_id, vehicle_ids, security_pin } = req.body;
-  if (!name || !email || !role_id) {
-    return res.status(400).json({ error: 'Name, email, and role are required' });
+  const { name, email, phone, role_id, vehicle_ids, security_pin, password } = req.body;
+  if (!name || !email || !role_id || !password) {
+    return res.status(400).json({ error: 'Name, email, role, and password are required' });
+  }
+  if (String(password).length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
   }
 
   const existing = db.get('SELECT id FROM users WHERE LOWER(email) = LOWER(?)', [email.trim()]);
@@ -67,8 +71,8 @@ router.post('/', authorize(['super_admin', 'company_admin']), (req, res) => {
 
   db.run(`
     INSERT INTO users (id, tenant_id, role_id, name, email, password_hash, phone, security_pin, is_active)
-    VALUES (?, ?, ?, ?, ?, '$2a$10$rQf6z5w87yQh7Eom8wB6xeV55m1qX0X6J01y3mE4qO8kL8w.9i4E8', ?, ?, 1)
-  `, [userId, tenantId, role_id, name, email.trim().toLowerCase(), phone || '9999999999', security_pin || '1234']);
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+  `, [userId, tenantId, role_id, name, email.trim().toLowerCase(), hashPassword(password), phone || '', security_pin || '1234']);
 
   // Assign vehicles if sub_user
   if (Array.isArray(vehicle_ids)) {

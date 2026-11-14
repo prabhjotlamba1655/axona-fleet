@@ -414,5 +414,6 @@ CREATE TABLE IF NOT EXISTS raw_packet_logs (
     raw_payload TEXT NOT NULL,
     is_valid INTEGER DEFAULT 1,
     error_message TEXT,
+    canonical_json TEXT,
     received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

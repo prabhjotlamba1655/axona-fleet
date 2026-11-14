@@ -274,7 +274,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTo, onSe
               </div>
 
               <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500">
-                <span className="font-medium text-slate-700">Location:</span> {selectedVehicle.address || 'Hinjawadi, Pune'}
+                <span className="font-medium text-slate-700">Location:</span> {selectedVehicle.address || 'Address unavailable'}
               </div>
 
               <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
@@ -312,8 +312,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTo, onSe
             <p className="text-[11px] text-slate-300 leading-relaxed">
               Inspect historical vehicle trips with animated waypoint scrubbing, stop audits, and telemetry replay on OpenStreetMap.
             </p>
-            <div className="pt-2 border-t border-navy-800/80 flex items-center justify-between text-xs">
-              <span className="text-slate-400 text-[11px]">Recent: Nigdi ➔ Hinjawadi (38.4 km)</span>
+            <div className="pt-2 border-t border-navy-800/80 flex items-center justify-end text-xs">
               <button
                 onClick={() => onNavigateTo('trips')}
                 className="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold text-[11px] flex items-center space-x-1 shadow-sm transition"

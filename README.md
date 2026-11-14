@@ -24,7 +24,7 @@ The system is built to comply with **MoRTH AIS-140 (Automotive Industry Standard
 
 - **Frontend**: React 18, TypeScript, Tailwind CSS, Lucide Icons, Leaflet with OpenStreetMap / CartoDB tiles.
 - **Backend**: Node.js, Express.js, TypeScript/ESM, WebSockets (`ws`), JSON Web Tokens (JWT), Bcrypt.
-- **Database**: PostgreSQL cloud-ready relational schema, with native SQLite (`node:sqlite`) zero-configuration embedded engine for instant evaluation.
+- **Database**: Embedded SQLite via Node.js `node:sqlite`. `development` uses `backend/data/dev.db`, `test` is isolated at `backend/data/test/test.db`, and `production` requires `STORAGE_PATH`.
 - **Telematics Layer**: AIS-140 ASCII parser, Teltonika/Concox adapters, raw packet logging, duplicate packet suppression, and realistic live GPS simulator.
 
 ---
@@ -158,7 +158,7 @@ axona-fleet-management/
 ## 7. Cloud Production Deployment
 
 For deploying to production clouds (AWS, GCP, DigitalOcean, Azure):
-1. **Database**: Point `DATABASE_URL` in backend `.env` to managed PostgreSQL. Run `backend/src/db/schema.sql` and `seeds.sql`.
+1. **Database**: Set `NODE_ENV=production` and `STORAGE_PATH` to the SQLite file path (for example `/var/lib/axona/data/prod.db`). The process creates the schema on startup and takes an exclusive `writer.lock` beside that file.
 2. **Reverse Proxy**: Setup Nginx reverse proxy with SSL terminating at port 443, proxying `/api` and `/ws` to the Node backend.
 3. **Frontend**: Build with `npm run build` and serve static `dist` via Nginx, Cloudflare Pages, or AWS S3/CloudFront.
 4. **Hardware Gateways**: Map external TCP/UDP ports 5001-5004 for direct GPS device hardware listener daemons.

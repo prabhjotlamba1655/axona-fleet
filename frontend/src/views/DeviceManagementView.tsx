@@ -18,6 +18,29 @@ import {
 import { apiFetch } from '../services/api';
 import { GPSDevice } from '../types';
 
+const PACKET_SAMPLES = {
+  ais140: '$PVT,864201045892110,12112026,143000,18.591200,N,073.738900,E,55.0,85.0,14,560,1,1,0,0*7F',
+  'navic-nmea': '$GNRMC,143000.00,A,1835.4720,N,07344.3340,E,29.70,85.0,131126,,,A*7F\n$GNGGA,143000.00,1835.4720,N,07344.3340,E,1,14,0.8,560.0,M,0.0,M,,*44',
+  json: `{
+  "imei": "864201045892110",
+  "latitude": 18.5912,
+  "longitude": 73.7389,
+  "speedKmh": 42,
+  "heading": 90,
+  "ignition": 1,
+  "satellites": 12
+}`,
+  teltonika: `{
+  "imei": "864201045892112",
+  "lat": 18.5204,
+  "lng": 73.8567,
+  "speed": 32,
+  "angle": 220,
+  "sat": 12,
+  "io": { "ignition": 1 }
+}`
+};
+
 export const DeviceManagementView: React.FC = () => {
   const [devices, setDevices] = useState<GPSDevice[]>([]);
   const [stats, setStats] = useState<any>({ total: 0, online: 0, offline: 0, tampered: 0, powerDisconnected: 0 });
@@ -25,9 +48,9 @@ export const DeviceManagementView: React.FC = () => {
   const [manufacturers, setManufacturers] = useState<any[]>([]);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState<boolean>(false);
   const [isTestPacketOpen, setIsTestPacketOpen] = useState<boolean>(false);
-  const [testPayload, setTestPayload] = useState<string>(
-    '$PVT,864201045892110,12112026,143000,18.591200,N,073.738900,E,55.0,85.0,14,560,1,1,0,0*7F'
-  );
+  const [ingestProtocol, setIngestProtocol] = useState<'ais140' | 'navic-nmea' | 'json' | 'teltonika'>('ais140');
+  const [testImei, setTestImei] = useState<string>('864201045892110');
+  const [testPayload, setTestPayload] = useState<string>(PACKET_SAMPLES.ais140);
   const [testResponse, setTestResponse] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -80,14 +103,25 @@ export const DeviceManagementView: React.FC = () => {
 
   const handleSendTestPacket = async () => {
     try {
+      let body: Record<string, unknown>;
+      if (ingestProtocol === 'json' || ingestProtocol === 'teltonika') {
+        body = JSON.parse(testPayload);
+        body.protocol = ingestProtocol;
+      } else {
+        body = {
+          protocol: ingestProtocol,
+          packet: testPayload,
+          imei: testImei || undefined
+        };
+      }
       const res = await apiFetch('/devices/ingest', {
         method: 'POST',
-        body: JSON.stringify({ packet: testPayload })
+        body: JSON.stringify(body)
       });
       setTestResponse(res);
       fetchDevices();
     } catch (err: any) {
-      setTestResponse({ error: err.message });
+      setTestResponse({ error: err.message, committed: false });
     }
   };
 
@@ -177,7 +211,7 @@ export const DeviceManagementView: React.FC = () => {
             <div className="flex items-center space-x-2">
               <Terminal className="w-4 h-4 text-sky-400" />
               <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                AIS-140 Packet Ingestion & Telematics Parser Simulator
+                Hardware Ingestion & Canonical Telemetry
               </h3>
             </div>
             <button onClick={() => setIsTestPacketOpen(false)} className="text-slate-400 hover:text-white">
@@ -186,20 +220,56 @@ export const DeviceManagementView: React.FC = () => {
           </div>
 
           <p className="text-[11px] text-slate-400">
-            Submit a raw AIS-140 NMEA string to the ingestion gateway to verify checksum calculation, GPS coordinate parsing, duplicate suppression, and database commit.
+            Payloads are normalized to one canonical telemetry document and committed with BEGIN IMMEDIATE before the gateway returns an ACK.
           </p>
 
+          <div className="flex flex-wrap gap-2">
+            {([
+              ['ais140', 'AIS-140'],
+              ['navic-nmea', 'NavIC NMEA'],
+              ['json', 'JSON'],
+              ['teltonika', 'Teltonika JSON']
+            ] as const).map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => {
+                  setIngestProtocol(id);
+                  setTestPayload(PACKET_SAMPLES[id]);
+                  setTestResponse(null);
+                }}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border ${
+                  ingestProtocol === id
+                    ? 'bg-sky-600 border-sky-500 text-white'
+                    : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-500'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           <div className="space-y-2">
+            {(ingestProtocol === 'ais140' || ingestProtocol === 'navic-nmea') && (
+              <input
+                value={testImei}
+                onChange={e => setTestImei(e.target.value)}
+                placeholder="IMEI (required for NavIC sentences)"
+                className="w-full bg-slate-950 font-mono text-xs p-2.5 rounded-lg border border-slate-700 text-slate-200 focus:outline-hidden focus:border-sky-500"
+              />
+            )}
             <textarea
-              rows={2}
+              rows={ingestProtocol === 'ais140' ? 2 : 6}
               value={testPayload}
               onChange={e => setTestPayload(e.target.value)}
               className="w-full bg-slate-950 font-mono text-xs p-2.5 rounded-lg border border-slate-700 text-sky-300 focus:outline-hidden focus:border-sky-500"
             />
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div className="text-[11px] text-slate-400">
-                Format: <code>$PVT,IMEI,DDMMYYYY,HHMMSS,LAT,DIR,LON,DIR,SPEED,HEAD,SATS,ALT,IGN,PWR,SOS,TMP*CS</code>
+                {ingestProtocol === 'ais140' && <code>$PVT / $ALT / $SOS</code>}
+                {ingestProtocol === 'navic-nmea' && <code>$GNRMC + $GNGGA. Speed in the sentence is knots.</code>}
+                {ingestProtocol === 'json' && <code>{'{ imei, latitude, longitude, speedKmh }'}</code>}
+                {ingestProtocol === 'teltonika' && <code>Decoded JSON. Raw CODEC8 frames are rejected until a decoder is registered.</code>}
               </div>
               <button
                 onClick={handleSendTestPacket}

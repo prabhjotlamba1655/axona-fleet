@@ -1,54 +1,37 @@
-import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getConfig } from '../config/index.js';
+import { closeConnection, openDatabase } from './connection.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const DB_PATH = path.join(__dirname, '..', '..', 'axona.db');
-
-let dbInstance = null;
+let seeded = false;
 
 export function getDatabase() {
-  if (dbInstance) return dbInstance;
-
-  const isNew = !fs.existsSync(DB_PATH);
-  dbInstance = new DatabaseSync(DB_PATH);
-
-  // Enable foreign keys and WAL mode for high performance
-  try {
-    dbInstance.exec('PRAGMA foreign_keys = ON;');
-    dbInstance.exec('PRAGMA journal_mode = WAL;');
-  } catch (err) {
-    console.warn('Pragma warning:', err.message);
-  }
-
-  // Initialize schema
-  const schemaPath = path.join(__dirname, 'schema.sql');
-  if (fs.existsSync(schemaPath)) {
-    const schemaSql = fs.readFileSync(schemaPath, 'utf8');
-    dbInstance.exec(schemaSql);
-  }
-
-  // Seed sample data if empty or new
-  const seedsPath = path.join(__dirname, 'seeds.sql');
-  if (fs.existsSync(seedsPath)) {
-    const seedsSql = fs.readFileSync(seedsPath, 'utf8');
-    try {
-      dbInstance.exec(seedsSql);
-      seedHistoricalGPSPoints(dbInstance);
-      seedDriverIntelligence(dbInstance);
-    } catch (err) {
-      console.warn('Seeding notice:', err.message);
+  const handle = openDatabase();
+  if (!seeded) {
+    seeded = true;
+    if (getConfig().seedDemoData) {
+      const seedsPath = path.join(__dirname, 'seeds.sql');
+      if (fs.existsSync(seedsPath)) {
+        try {
+          handle.exec(fs.readFileSync(seedsPath, 'utf8'));
+          seedHistoricalGPSPoints(handle);
+          seedDriverIntelligence(handle);
+        } catch (err) {
+          console.warn('Seeding notice:', err.message);
+        }
+      }
+      seedDriverIntelligence(handle);
     }
   }
+  return handle;
+}
 
-  // Ensure Driver Intelligence tables exist on active database
-  seedDriverIntelligence(dbInstance);
-
-  console.log(`[Axona DB] Enterprise Database initialized at ${DB_PATH}`);
-  return dbInstance;
+export function closeDatabase() {
+  seeded = false;
+  closeConnection();
 }
 
 // Seed realistic GPS history trail and 90-day trips for route replay & reports

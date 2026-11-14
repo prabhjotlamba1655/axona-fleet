@@ -8,15 +8,35 @@ const router = express.Router();
 // Public / Protected Ingestion endpoint for GPS Devices
 // POST /api/devices/ingest - Ingest raw AIS-140 GPS packet (TCP/HTTP gateway)
 router.post('/ingest', async (req, res) => {
-  const { packet, imei } = req.body;
-  const rawData = packet || req.body.rawString || (typeof req.body === 'string' ? req.body : null);
+  const body = req.body;
+  const hasPayload = typeof body === 'string'
+    || (body && (body.packet || body.nmea || body.rawString || body.imei || body.latitude != null || body.lat != null || body.protocol));
 
-  if (!rawData) {
-    return res.status(400).json({ error: 'Raw AIS-140 packet data is required' });
+  if (!hasPayload) {
+    return res.status(400).json({
+      status: 'REJECTED',
+      committed: false,
+      error: 'Telemetry payload is required',
+      ack: null
+    });
   }
 
-  const result = await AIS140Parser.processIncomingPacket(rawData, 'HTTP', req.ip);
-  res.json(result);
+  try {
+    // ingestTelemetry commits BEGIN IMMEDIATE before this response is sent.
+    const result = await AIS140Parser.processIncomingPacket(body, 'HTTP', req.ip);
+    if (result?.status === 'ERROR') {
+      return res.status(500).json(result);
+    }
+    return res.json(result);
+  } catch (err) {
+    console.error('[Axona Ingest] transaction rolled back:', err.message);
+    return res.status(500).json({
+      status: 'ERROR',
+      committed: false,
+      error: err.message,
+      ack: null
+    });
+  }
 });
 
 // All following endpoints require authenticated session

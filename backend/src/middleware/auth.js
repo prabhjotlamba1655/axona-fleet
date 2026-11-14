@@ -1,7 +1,8 @@
 import jwt from 'jsonwebtoken';
 import db from '../db/database.js';
+import { getConfig } from '../config/index.js';
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'axona_fleet_jwt_secret_enterprise_2026';
+export const JWT_SECRET = getConfig().jwtSecret;
 
 export function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;

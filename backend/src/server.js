@@ -1,10 +1,15 @@
 import express from 'express';
 import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { WebSocketServer, WebSocket } from 'ws';
 
-import db from './db/database.js';
+import { getConfig } from './config/index.js';
+import db, { closeDatabase } from './db/database.js';
+import { startBackupWorker, stopBackupWorker } from './db/backup.js';
 import authRoutes from './routes/auth.js';
 import vehicleRoutes from './routes/vehicles.js';
 import trackingRoutes from './routes/tracking.js';
@@ -18,12 +23,14 @@ import userRoutes from './routes/users.js';
 import subscriptionRoutes from './routes/subscriptions.js';
 import settingsRoutes from './routes/settings.js';
 import driverIntelligenceRoutes from './routes/driverIntelligence.js';
-import { startGPSSimulator } from './services/gpsSimulator.js';
+import maintenanceRoutes from './routes/maintenance.js';
+import { startGPSSimulator, stopGPSSimulator } from './services/gpsSimulator.js';
+import { startTeltonikaTcpServer, stopTeltonikaTcpServer } from './services/teltonikaTcpServer.js';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5055;
+const PORT = getConfig().port;
 
 // Enable CORS for frontend dev server
 app.use(cors({
@@ -57,6 +64,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/driver-intelligence', driverIntelligenceRoutes);
+app.use('/api/maintenance', maintenanceRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -67,6 +75,13 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Production serves the built UI from this same port. The app has no URL router,
+// so index.html covers "/". API and WebSocket routes stay in front of this.
+const frontendDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../frontend/dist');
+if (getConfig().nodeEnv === 'production' && fs.existsSync(path.join(frontendDist, 'index.html'))) {
+  app.use(express.static(frontendDist));
+}
 
 // Centralized error handling
 app.use((err, req, res, next) => {
@@ -128,13 +143,43 @@ export function broadcastWS(payload) {
 }
 
 // Start HTTP Server
+db.get('SELECT 1 AS ready');
+startBackupWorker();
+
+let shuttingDown = false;
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[Axona] ${signal} received. Stopping telemetry and releasing writer.lock`);
+  stopBackupWorker();
+  stopGPSSimulator();
+  stopTeltonikaTcpServer();
+  server.close(() => {
+    closeDatabase();
+    process.exit(0);
+  });
+  setTimeout(() => {
+    closeDatabase();
+    process.exit(0);
+  }, 2000).unref();
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+
 server.listen(PORT, () => {
+  const config = getConfig();
   console.log('================================================================');
   console.log(`🚀 AXONA FLEET MANAGEMENT BACKEND ONLINE on http://localhost:${PORT}`);
   console.log(`📡 WebSocket Telematics Gateway listening on ws://localhost:${PORT}/ws/telematics`);
+  console.log(`🗄️  SQLite ${config.nodeEnv} ${config.databasePath}`);
   console.log('🏢 Developed by Axona Software LLP');
   console.log('================================================================');
 
-  // Start background GPS telemetry streamer
-  startGPSSimulator(broadcastWS);
+  if (config.nodeEnv === 'development') {
+    startGPSSimulator(broadcastWS);
+  }
+  if (config.nodeEnv !== 'test' && config.teltonikaTcpPort) {
+    startTeltonikaTcpServer(config.teltonikaTcpPort);
+  }
 });

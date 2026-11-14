@@ -32,13 +32,16 @@ INSERT OR IGNORE INTO tenants (id, name, tenant_type, contact_person, email, pho
 ('tenant_apex', 'Apex Commercial Logistics LLP', 'company', 'Vikramaditya Rao', 'fleetmanager@apexlogistics.in', '+91 98220 12345', 'Plot 45, MIDC Industrial Area, Hinjawadi Phase 2', 'Pune', 'Maharashtra', 'India'),
 ('tenant_rahul', 'Rahul Sharma (Personal)', 'individual', 'Rahul Sharma', 'rahul.sharma@gmail.com', '+91 98450 67890', 'A-304, Palm Meadows, Whitefield', 'Bengaluru', 'Karnataka', 'India');
 
--- Users (All default password is 'admin123' hashed with bcrypt or plain fallback)
--- bcrypt hash for 'admin123': $2a$10$wT0xQfQzGq53.7i4E8wDceL.uWz6a6x3W1N6WbZ4s6ZzW8B9I/jWW (or we verify plain in fallback)
+-- Development demo password for every seeded user is admin123.
 INSERT OR IGNORE INTO users (id, tenant_id, role_id, name, email, password_hash, phone, security_pin, is_active) VALUES
-('usr_super', 'tenant_super', 'role_super', 'Axona Operations Lead', 'superadmin@axonafleet.com', '$2a$10$rQf6z5w87yQh7Eom8wB6xeV55m1qX0X6J01y3mE4qO8kL8w.9i4E8', '+91 98765 00001', '9999', 1),
-('usr_apex_admin', 'tenant_apex', 'role_company', 'Vikramaditya Rao', 'fleetmanager@apexlogistics.in', '$2a$10$rQf6z5w87yQh7Eom8wB6xeV55m1qX0X6J01y3mE4qO8kL8w.9i4E8', '+91 98220 12345', '1234', 1),
-('usr_rahul', 'tenant_rahul', 'role_owner', 'Rahul Sharma', 'rahul.sharma@gmail.com', '$2a$10$rQf6z5w87yQh7Eom8wB6xeV55m1qX0X6J01y3mE4qO8kL8w.9i4E8', '+91 98450 67890', '4321', 1),
-('usr_driver_sub', 'tenant_apex', 'role_subuser', 'Vikram Singh (Dispatcher)', 'driver.vikram@apexlogistics.in', '$2a$10$rQf6z5w87yQh7Eom8wB6xeV55m1qX0X6J01y3mE4qO8kL8w.9i4E8', '+91 98111 22334', '1122', 1);
+('usr_super', 'tenant_super', 'role_super', 'Axona Operations Lead', 'superadmin@axonafleet.com', '$2a$10$D/ST9qGaHFQNz8JZ.9I6Te9.U6pFo4HJRMEpbf6WuELvHj6p/Q/LG', '+91 98765 00001', '9999', 1),
+('usr_apex_admin', 'tenant_apex', 'role_company', 'Vikramaditya Rao', 'fleetmanager@apexlogistics.in', '$2a$10$D/ST9qGaHFQNz8JZ.9I6Te9.U6pFo4HJRMEpbf6WuELvHj6p/Q/LG', '+91 98220 12345', '1234', 1),
+('usr_rahul', 'tenant_rahul', 'role_owner', 'Rahul Sharma', 'rahul.sharma@gmail.com', '$2a$10$D/ST9qGaHFQNz8JZ.9I6Te9.U6pFo4HJRMEpbf6WuELvHj6p/Q/LG', '+91 98450 67890', '4321', 1),
+('usr_driver_sub', 'tenant_apex', 'role_subuser', 'Vikram Singh (Dispatcher)', 'driver.vikram@apexlogistics.in', '$2a$10$D/ST9qGaHFQNz8JZ.9I6Te9.U6pFo4HJRMEpbf6WuELvHj6p/Q/LG', '+91 98111 22334', '1122', 1);
+
+UPDATE users
+SET password_hash = '$2a$10$D/ST9qGaHFQNz8JZ.9I6Te9.U6pFo4HJRMEpbf6WuELvHj6p/Q/LG'
+WHERE password_hash = '$2a$10$rQf6z5w87yQh7Eom8wB6xeV55m1qX0X6J01y3mE4qO8kL8w.9i4E8';
 
 -- GPS Devices
 INSERT OR IGNORE INTO gps_devices (id, tenant_id, imei, manufacturer_id, model, sim_number, firmware_version, is_ais140_compliant, status, last_communication, main_power_connected, backup_battery_pct, gps_fixed, satellites, tamper_detected) VALUES

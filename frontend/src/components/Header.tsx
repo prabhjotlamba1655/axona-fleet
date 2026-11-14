@@ -9,7 +9,8 @@ import {
   UserCheck,
   ChevronDown,
   Shield,
-  Activity
+  Activity,
+  LogOut
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import audioAlert from '../services/audioService';
@@ -135,6 +136,14 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="text-xs font-bold text-slate-800 leading-tight">{user?.name}</div>
             <div className="text-[10px] text-slate-500 truncate max-w-[120px]">{user?.email}</div>
           </div>
+          <button
+            type="button"
+            onClick={logout}
+            title="Sign out"
+            className="ml-1 p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </header>

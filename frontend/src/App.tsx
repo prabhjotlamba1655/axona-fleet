@@ -16,6 +16,7 @@ import ReportsView from './views/ReportsView';
 import UserManagementView from './views/UserManagementView';
 import SettingsView from './views/SettingsView';
 
+import LoginView from './views/LoginView';
 import { apiFetch, telematicsWS } from './services/api';
 import audioAlert from './services/audioService';
 
@@ -25,8 +26,14 @@ const MainApp: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [activePanicCount, setActivePanicCount] = useState<number>(0);
 
+  useEffect(() => {
+    if (!user) return;
+    telematicsWS.connect();
+  }, [user]);
+
   // Poll for active 'New' panic alerts to update badge & trigger audio
   useEffect(() => {
+    if (!user) return;
     const checkPanic = async () => {
       try {
         const alerts = await apiFetch<any[]>('/panic?status=New');
@@ -42,7 +49,7 @@ const MainApp: React.FC = () => {
     checkPanic();
     const interval = setInterval(checkPanic, 6000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   if (loading) {
     return (
@@ -53,6 +60,10 @@ const MainApp: React.FC = () => {
         </div>
       </div>
     );
+  }
+
+  if (!user) {
+    return <LoginView />;
   }
 
   return (

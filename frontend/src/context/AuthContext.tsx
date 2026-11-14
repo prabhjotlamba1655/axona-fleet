@@ -1,12 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
-import { apiFetch, getAuthToken, setAuthToken, clearAuthToken, telematicsWS } from '../services/api';
+import { apiFetch, getAuthToken, setAuthToken, clearAuthToken } from '../services/api';
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
+  needsSetup: boolean;
   demoUsers: any[];
+  login: (email: string, password: string) => Promise<void>;
+  createAdministrator: (input: { name: string; email: string; password: string; organization: string }) => Promise<void>;
   switchUserRole: (userId: string) => Promise<void>;
   logout: () => void;
   hasRole: (allowed: UserRole[]) => boolean;
@@ -14,71 +17,97 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function storeSession(token: string, user: User) {
+  setAuthToken(token);
+  localStorage.setItem('axona_current_user', JSON.stringify(user));
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(getAuthToken());
   const [demoUsers, setDemoUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [needsSetup, setNeedsSetup] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Initialize demo users list and default session
   useEffect(() => {
     async function initAuth() {
       try {
+        const status = await apiFetch<{ needsSetup: boolean }>('/auth/setup-status');
+        setNeedsSetup(status.needsSetup);
+        const existing = getAuthToken();
+        if (!existing || status.needsSetup) {
+          if (status.needsSetup) clearAuthToken();
+          return;
+        }
+        const me = await apiFetch<User>('/auth/me');
+        setUser(me);
+        setToken(existing);
         const users = await apiFetch<any[]>('/auth/demo-users');
         setDemoUsers(users);
-
-        // Check if there is already a stored user session
-        const storedUser = localStorage.getItem('axona_current_user');
-        if (storedUser && token) {
-          setUser(JSON.parse(storedUser));
-        } else if (users.length > 0) {
-          // Default to Company Admin (Apex Commercial Logistics) for full operational fleet view
-          const defaultUser = users.find(u => u.role === 'company_admin') || users[0];
-          await switchUserRole(defaultUser.id);
-        }
-      } catch (err) {
-        console.error('Failed to init auth:', err);
+      } catch {
+        clearAuthToken();
+        setUser(null);
+        setToken(null);
       } finally {
         setLoading(false);
       }
     }
 
     initAuth();
-    telematicsWS.connect();
   }, []);
 
-  const switchUserRole = async (userId: string) => {
+  const applySession = async (res: { token: string; user: User }) => {
+    storeSession(res.token, res.user);
+    setToken(res.token);
+    setUser(res.user);
+    setNeedsSetup(false);
     try {
-      setLoading(true);
-      const res = await apiFetch<{ token: string; user: User }>('/auth/switch-user', {
-        method: 'POST',
-        body: JSON.stringify({ userId })
-      });
-      setAuthToken(res.token);
-      localStorage.setItem('axona_current_user', JSON.stringify(res.user));
-      setToken(res.token);
-      setUser(res.user);
-    } catch (err) {
-      console.error('Failed to switch user:', err);
-    } finally {
-      setLoading(false);
+      const users = await apiFetch<any[]>('/auth/demo-users');
+      setDemoUsers(users);
+    } catch {
+      setDemoUsers([]);
     }
+  };
+
+  const login = async (email: string, password: string) => {
+    const res = await apiFetch<{ token: string; user: User }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password })
+    });
+    await applySession(res);
+  };
+
+  const createAdministrator = async (input: { name: string; email: string; password: string; organization: string }) => {
+    const res = await apiFetch<{ token: string; user: User }>('/auth/setup', {
+      method: 'POST',
+      body: JSON.stringify(input)
+    });
+    await applySession(res);
+  };
+
+  const switchUserRole = async (userId: string) => {
+    const res = await apiFetch<{ token: string; user: User }>('/auth/switch-user', {
+      method: 'POST',
+      body: JSON.stringify({ userId })
+    });
+    await applySession(res);
   };
 
   const logout = () => {
     clearAuthToken();
     setUser(null);
     setToken(null);
+    setDemoUsers([]);
   };
 
   const hasRole = (allowed: UserRole[]): boolean => {
     if (!user) return false;
-    if (user.role === 'super_admin') return true; // Super admin has global access
+    if (user.role === 'super_admin') return true;
     return allowed.includes(user.role);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, demoUsers, switchUserRole, logout, hasRole }}>
+    <AuthContext.Provider value={{ user, token, loading, needsSetup, demoUsers, login, createAdministrator, switchUserRole, logout, hasRole }}>
       {children}
     </AuthContext.Provider>
   );
