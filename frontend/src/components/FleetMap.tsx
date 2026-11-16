@@ -15,7 +15,7 @@ interface FleetMapProps {
   selectedVehicleId?: string | null;
   onSelectVehicle?: (vehicle: VehicleLocation) => void;
   geofences?: Geofence[];
-  trailPoints?: { latitude: number; longitude: number; is_stop?: number; stop_duration_min?: number; speed?: number; heading?: number; address?: string }[];
+  trailPoints?: { latitude: number; longitude: number; is_stop?: number; stop_duration_min?: number; speed?: number; heading?: number; ignition?: number; address?: string }[];
   currentReplayPoint?: { latitude: number; longitude: number; speed?: number; heading?: number; address?: string };
   center?: [number, number];
   zoom?: number;
@@ -180,6 +180,9 @@ export const FleetMap: React.FC<FleetMapProps> = ({
       if (isPanic) {
         colorClass = '#E11D48'; // critical red
         statusLabel = 'EMERGENCY SOS';
+      } else if (veh.movement_status === 'towing') {
+        colorClass = '#7C3AED';
+        statusLabel = 'TOWING';
       } else if (veh.movement_status === 'stopped') {
         colorClass = '#EF4444'; // red stopped
         statusLabel = 'STOPPED';
@@ -271,11 +274,30 @@ export const FleetMap: React.FC<FleetMapProps> = ({
       }
     });
 
+    if (focus) return;
+
     if (selectedVehicleId && currentMarkers[selectedVehicleId]) {
       const pos = currentMarkers[selectedVehicleId].getLatLng();
-      map.panTo(pos, { animate: true });
+      map.setView(pos, Math.max(map.getZoom(), 13), { animate: true });
+      return;
     }
-  }, [vehicles, selectedVehicleId]);
+    const points: [number, number][] = [];
+    vehicles.forEach((veh) => {
+      if (Number.isFinite(veh.latitude) && Number.isFinite(veh.longitude) && !(veh.latitude === 0 && veh.longitude === 0)) {
+        points.push([veh.latitude, veh.longitude]);
+      }
+    });
+    geofences.forEach((fence) => {
+      if (fence.fence_type === 'circle' && Number.isFinite(fence.center_lat) && Number.isFinite(fence.center_lng) && !(fence.center_lat === 0 && fence.center_lng === 0)) {
+        points.push([fence.center_lat, fence.center_lng]);
+      }
+    });
+    if (points.length === 1) {
+      map.setView(points[0], 13);
+    } else if (points.length > 1) {
+      map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 13 });
+    }
+  }, [vehicles, selectedVehicleId, geofences, focus]);
 
   // Update Geofences
   useEffect(() => {
@@ -393,7 +415,7 @@ export const FleetMap: React.FC<FleetMapProps> = ({
       trailPoints.forEach((pt, idx) => {
         if (pt.is_stop && idx > 0 && idx < trailPoints.length - 1) {
           stoppageIndex++;
-          const duration = pt.stop_duration_min || 8;
+          const duration = pt.stop_duration_min || 0;
           const stopIcon = L.divIcon({
             className: 'custom-stop-marker',
             html: `
@@ -422,7 +444,7 @@ export const FleetMap: React.FC<FleetMapProps> = ({
                 </div>
                 <div style="margin-bottom:4px;"><strong>Location:</strong><br/>${pt.address || 'En-route Checkpoint / Toll Bay'}</div>
                 <div style="margin-bottom:4px; color:#64748B; font-size:11px;">
-                  <strong>Status:</strong> Ignition OFF &bull; Speed: 0 km/h
+                  <strong>Status:</strong> Ignition ${pt.ignition ? 'ON' : 'OFF'} &bull; Speed: 0 km/h &bull; ${duration} min
                 </div>
                 <div style="margin-bottom:6px; color:#64748B; font-size:10px; font-family:monospace;">
                   Coordinates: ${pt.latitude.toFixed(5)}, ${pt.longitude.toFixed(5)}

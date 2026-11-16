@@ -28,6 +28,7 @@ import {
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { apiFetch, telematicsWS } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { Vehicle } from '../types';
 
 interface DriverKPIs {
@@ -98,6 +99,8 @@ interface IMUConfig {
 }
 
 export const DriverIntelligenceView: React.FC = () => {
+  const { user } = useAuth();
+  const canEditSensors = user?.role === 'super_admin' || user?.role === 'company_admin';
   const [activeTab, setActiveTab] = useState<'events' | 'leaderboard' | 'map' | 'config'>('events');
   const [kpis, setKpis] = useState<DriverKPIs>({
     totalEvents: 0,
@@ -110,7 +113,7 @@ export const DriverIntelligenceView: React.FC = () => {
     last24hCount: 0,
     last7dCount: 0,
     fleetSafetyScore: 85,
-    protocol: 'tnavIC AIS-140 / ARAI Standard'
+    protocol: 'Same score for every connected tracker'
   });
 
   const [events, setEvents] = useState<DriverEvent[]>([]);
@@ -215,26 +218,30 @@ export const DriverIntelligenceView: React.FC = () => {
     const unsub = telematicsWS.subscribe((msg: any) => {
       if (msg && msg.type === 'DRIVER_INTELLIGENCE_EVENT' && msg.data) {
         const ev = msg.data;
-        // Prepend event
+        const latitude = Number(ev.latitude);
+        const longitude = Number(ev.longitude);
+        const hasFix = Number.isFinite(latitude) && Number.isFinite(longitude);
         setEvents(prev => [
           {
             id: ev.id,
             vehicle_id: ev.vehicleId,
-            registration_number: ev.registrationNumber,
-            driver_name: ev.driverName,
-            event_type: ev.eventType,
-            packet_type: ev.packetType,
-            alert_id: ev.alertId,
-            severity: ev.severity,
-            metric_value: ev.metricValue,
-            threshold_value: ev.thresholdValue,
-            speed: ev.speed,
-            heading: ev.heading,
-            latitude: ev.latitude,
-            longitude: ev.longitude,
-            address: `Lat ${ev.latitude.toFixed(4)}, Lon ${ev.longitude.toFixed(4)}`,
-            event_time: ev.timestamp,
-            osmLink: `https://www.openstreetmap.org/?mlat=${ev.latitude}&mlon=${ev.longitude}#map=16/${ev.latitude}/${ev.longitude}`
+            registration_number: ev.registrationNumber || 'Unknown vehicle',
+            driver_name: ev.driverName || 'Assigned Driver',
+            event_type: ev.eventType || 'UNKNOWN',
+            packet_type: ev.packetType || '',
+            alert_id: ev.alertId ?? 0,
+            severity: ev.severity || 'WARNING',
+            metric_value: ev.metricValue || '—',
+            threshold_value: ev.thresholdValue || '—',
+            speed: Number.isFinite(Number(ev.speed)) ? Number(ev.speed) : 0,
+            heading: Number.isFinite(Number(ev.heading)) ? Number(ev.heading) : 0,
+            latitude,
+            longitude,
+            address: hasFix ? `Lat ${latitude.toFixed(4)}, Lon ${longitude.toFixed(4)}` : 'Location unavailable',
+            event_time: ev.timestamp || '',
+            osmLink: hasFix
+              ? `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=16/${latitude}/${longitude}`
+              : ''
           },
           ...prev
         ]);
@@ -254,7 +261,7 @@ export const DriverIntelligenceView: React.FC = () => {
     if (activeTab !== 'map' || !mapContainerRef.current) return;
 
     if (!mapInstanceRef.current) {
-      const map = L.map(mapContainerRef.current).setView([18.5912, 73.7389], 12);
+      const map = L.map(mapContainerRef.current).setView([22.5, 79], 5);
       
       // OpenStreetMap standard tile layer
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -273,7 +280,7 @@ export const DriverIntelligenceView: React.FC = () => {
       const bounds = L.latLngBounds([]);
 
       events.forEach(ev => {
-        if (!ev.latitude || !ev.longitude) return;
+        if (!Number.isFinite(Number(ev.latitude)) || !Number.isFinite(Number(ev.longitude))) return;
         bounds.extend([ev.latitude, ev.longitude]);
 
         // Distinct colors for the 5 categories
@@ -300,12 +307,12 @@ export const DriverIntelligenceView: React.FC = () => {
         const popupContent = `
           <div style="font-family: sans-serif; font-size: 12px; min-width: 220px;">
             <div style="font-weight: 700; color: #0f172a; font-size: 13px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px;">
-              ${ev.registration_number} &bull; <span style="color: ${pinColor}">${ev.event_type.replace('_', ' ')}</span>
+              ${ev.registration_number || 'Vehicle'} &bull; <span style="color: ${pinColor}">${(ev.event_type || 'Event').replace(/_/g, ' ')}</span>
             </div>
-            <div style="margin-bottom: 3px;"><strong>Driver:</strong> ${ev.driver_name}</div>
-            <div style="margin-bottom: 3px;"><strong>Sensor Metric:</strong> <span style="color: #b91c1c; font-weight: 600;">${ev.metric_value}</span></div>
-            <div style="margin-bottom: 3px;"><strong>Configured Threshold:</strong> ${ev.threshold_value}</div>
-            <div style="margin-bottom: 3px;"><strong>Speed / Heading:</strong> ${ev.speed} km/h | ${ev.heading}&deg;</div>
+            <div style="margin-bottom: 3px;"><strong>Driver:</strong> ${ev.driver_name || 'Assigned Driver'}</div>
+            <div style="margin-bottom: 3px;"><strong>Sensor Metric:</strong> <span style="color: #b91c1c; font-weight: 600;">${ev.metric_value || '—'}</span></div>
+            <div style="margin-bottom: 3px;"><strong>Configured Threshold:</strong> ${ev.threshold_value || '—'}</div>
+            <div style="margin-bottom: 3px;"><strong>Speed / Heading:</strong> ${ev.speed ?? '—'} km/h | ${ev.heading ?? '—'}&deg;</div>
             <div style="margin-bottom: 6px; color: #64748b; font-size: 11px;">${ev.event_time}</div>
             <a href="${ev.osmLink}" target="_blank" rel="noreferrer" style="display: inline-block; background: #0284c7; color: white; padding: 4px 8px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: 500;">
               View on OpenStreetMap &nearr;
@@ -346,8 +353,23 @@ export const DriverIntelligenceView: React.FC = () => {
   };
 
   // Update IMU configuration
-  const handleSaveIMUConfig = async () => {
+  const restoreSensorDefaults = () => {
     if (!imuConfig) return;
+    setImuConfig({
+      ...imuConfig,
+      harsh_brake_threshold: 0.55,
+      harsh_accel_threshold: 0.43,
+      tilt_angle_threshold: 45,
+      rash_turning_speed: 30,
+      harsh_turning_g: 0.47,
+      speed_limit: 70
+    });
+  };
+
+  const handleSaveIMUConfig = async () => {
+    if (!imuConfig || !canEditSensors) return;
+    const confirmed = window.confirm('Save these sensor limits to the tracker?');
+    if (!confirmed) return;
     try {
       const res = await apiFetch<any>(`/driver-intelligence/device-config/${selectedDeviceId}`, {
         method: 'PUT',
@@ -356,6 +378,7 @@ export const DriverIntelligenceView: React.FC = () => {
           harshAccel: imuConfig.harsh_accel_threshold,
           tiltAngle: imuConfig.tilt_angle_threshold,
           rashTurning: imuConfig.rash_turning_speed,
+          harshTurning: imuConfig.harsh_turning_g,
           speedLimit: imuConfig.speed_limit
         })
       });
@@ -407,7 +430,7 @@ export const DriverIntelligenceView: React.FC = () => {
 
         {/* Action Controls */}
         <div className="flex items-center flex-wrap gap-2.5">
-          {/* Quick Simulation Dropdown */}
+          {import.meta.env.DEV && (
           <div className="relative inline-block text-left">
             <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-1">
               <span className="text-[11px] font-medium text-slate-500 px-2">Simulate Event:</span>
@@ -453,6 +476,7 @@ export const DriverIntelligenceView: React.FC = () => {
               </button>
             </div>
           </div>
+          )}
 
           <button
             onClick={fetchData}
@@ -801,7 +825,7 @@ export const DriverIntelligenceView: React.FC = () => {
                         <tr key={ev.id} className="hover:bg-slate-50/70 transition-colors">
                           <td className="py-3 px-4 whitespace-nowrap">
                             <div className="font-mono text-slate-800 font-semibold">{ev.event_time}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">Packet: ${ev.packet_type} (ID: {ev.alert_id})</div>
+                            <div className="text-[10px] text-slate-400 font-mono">Packet: {ev.packet_type || '—'} (ID: {ev.alert_id ?? '—'})</div>
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap">
                             <div className="font-semibold text-slate-900">{ev.registration_number}</div>
@@ -812,26 +836,27 @@ export const DriverIntelligenceView: React.FC = () => {
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${badgeBg}`}>
-                              {ev.event_type.replace('_', ' ')}
+                              {(ev.event_type || 'Event').replace(/_/g, ' ')}
                             </span>
                             {ev.severity === 'CRITICAL' && (
                               <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-rose-600" title="Critical Event"></span>
                             )}
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap">
-                            <span className="font-mono font-bold text-slate-900">{ev.metric_value}</span>
+                            <span className="font-mono font-bold text-slate-900">{ev.metric_value || '—'}</span>
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap font-mono text-slate-500 text-[11px]">
-                            {ev.threshold_value}
+                            {ev.threshold_value || '—'}
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap font-mono">
-                            <span className="font-semibold text-slate-800">{ev.speed} km/h</span>
-                            <span className="text-slate-400 text-[11px] ml-1">({ev.heading}&deg;)</span>
+                            <span className="font-semibold text-slate-800">{ev.speed ?? '—'} km/h</span>
+                            <span className="text-slate-400 text-[11px] ml-1">({ev.heading ?? '—'}&deg;)</span>
                           </td>
                           <td className="py-3 px-4 max-w-[200px] truncate text-slate-600" title={ev.address}>
                             {ev.address}
                           </td>
                           <td className="py-3 px-4 text-right whitespace-nowrap">
+                            {ev.osmLink ? (
                             <a
                               href={ev.osmLink}
                               target="_blank"
@@ -841,6 +866,9 @@ export const DriverIntelligenceView: React.FC = () => {
                               <span>OpenStreetMap</span>
                               <ExternalLink className="w-3 h-3" />
                             </a>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
                           </td>
                         </tr>
                       );
@@ -880,8 +908,10 @@ export const DriverIntelligenceView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
-                  {leaderboard.map(item => (
-                    <tr key={item.vehicleId} className="hover:bg-slate-50/70 transition-colors">
+                  {leaderboard.map(item => {
+                    const score = Number.isFinite(Number(item.safetyScore)) ? Number(item.safetyScore) : 100;
+                    return (
+                    <tr key={item.vehicleId || item.registrationNumber} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3 px-4 font-bold text-slate-900">
                         #{item.rank}
                       </td>
@@ -891,35 +921,35 @@ export const DriverIntelligenceView: React.FC = () => {
                       </td>
                       <td className="py-3 px-4 whitespace-nowrap min-w-[140px]">
                         <div className="flex items-center space-x-2">
-                          <span className="font-mono font-bold text-sm text-slate-900">{item.safetyScore}</span>
+                          <span className="font-mono font-bold text-sm text-slate-900">{score}</span>
                           <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
                             <div
                               className={`h-full rounded-full ${
-                                item.safetyScore >= 85
+                                score >= 85
                                   ? 'bg-emerald-500'
-                                  : item.safetyScore >= 70
+                                  : score >= 70
                                   ? 'bg-amber-500'
                                   : 'bg-rose-500'
                               }`}
-                              style={{ width: `${item.safetyScore}%` }}
+                              style={{ width: `${score}%` }}
                             ></div>
                           </div>
                         </div>
                       </td>
                       <td className="py-3 px-4 text-center font-mono font-medium text-amber-700">
-                        {item.harshBraking}
+                        {item.harshBraking ?? 0}
                       </td>
                       <td className="py-3 px-4 text-center font-mono font-medium text-orange-700">
-                        {item.harshAccel}
+                        {item.harshAccel ?? 0}
                       </td>
                       <td className="py-3 px-4 text-center font-mono font-bold text-rose-700">
-                        {item.vehicleTilt}
+                        {item.vehicleTilt ?? 0}
                       </td>
                       <td className="py-3 px-4 text-center font-mono font-medium text-purple-700">
-                        {item.rashDriving}
+                        {item.rashDriving ?? 0}
                       </td>
                       <td className="py-3 px-4 text-center font-mono font-medium text-sky-700">
-                        {item.overspeeding}
+                        {item.overspeeding ?? 0}
                       </td>
                       <td className="py-3 px-4 text-right whitespace-nowrap">
                         <span
@@ -935,7 +965,8 @@ export const DriverIntelligenceView: React.FC = () => {
                         </span>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1001,20 +1032,25 @@ export const DriverIntelligenceView: React.FC = () => {
             </div>
           )}
 
+          <p className="text-xs text-slate-500">
+            {canEditSensors
+              ? 'Company administrators can set these limits inside the allowed range. Restore defaults returns the AIS-140 values.'
+              : 'Only a company administrator can change these limits.'}
+          </p>
           {imuConfig && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <fieldset disabled={!canEditSensors} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {/* 1. Harsh Braking Threshold (HBT) */}
               <div className="p-4 rounded-lg border border-slate-200 bg-slate-50/60">
                 <label className="block text-xs font-bold text-slate-800 mb-1">
                   1. Harsh Braking Threshold (HBT)
                 </label>
-                <p className="text-[11px] text-slate-500 mb-2">Limit in g (m/s²). Default 0.55g</p>
+                <p className="text-[11px] text-slate-500 mb-2">Allowed 0.35g to 0.80g. Default 0.55g</p>
                 <div className="flex items-center space-x-2">
                   <input
                     type="number"
-                    step="0.05"
-                    min="0.1"
-                    max="2.0"
+                    step="0.01"
+                    min="0.35"
+                    max="0.80"
                     value={imuConfig.harsh_brake_threshold}
                     onChange={(e) => setImuConfig({ ...imuConfig, harsh_brake_threshold: parseFloat(e.target.value) || 0.55 })}
                     className="w-full bg-white border border-slate-200 rounded px-3 py-1.5 text-xs font-mono font-bold"
@@ -1028,13 +1064,13 @@ export const DriverIntelligenceView: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-800 mb-1">
                   2. Harsh Acceleration Threshold (HAT)
                 </label>
-                <p className="text-[11px] text-slate-500 mb-2">Limit in g (m/s²). Default 0.43g</p>
+                <p className="text-[11px] text-slate-500 mb-2">Allowed 0.25g to 0.65g. Default 0.43g</p>
                 <div className="flex items-center space-x-2">
                   <input
                     type="number"
-                    step="0.05"
-                    min="0.1"
-                    max="2.0"
+                    step="0.01"
+                    min="0.25"
+                    max="0.65"
                     value={imuConfig.harsh_accel_threshold}
                     onChange={(e) => setImuConfig({ ...imuConfig, harsh_accel_threshold: parseFloat(e.target.value) || 0.43 })}
                     className="w-full bg-white border border-slate-200 rounded px-3 py-1.5 text-xs font-mono font-bold"
@@ -1048,13 +1084,13 @@ export const DriverIntelligenceView: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-800 mb-1">
                   3. Tilt Angle Threshold (TA)
                 </label>
-                <p className="text-[11px] text-slate-500 mb-2">Minimum tilt in degrees for alert. Default 45°</p>
+                <p className="text-[11px] text-slate-500 mb-2">Allowed 30° to 60°. Default 45°</p>
                 <div className="flex items-center space-x-2">
                   <input
                     type="number"
                     step="1"
-                    min="15"
-                    max="90"
+                    min="30"
+                    max="60"
                     value={imuConfig.tilt_angle_threshold}
                     onChange={(e) => setImuConfig({ ...imuConfig, tilt_angle_threshold: parseFloat(e.target.value) || 45.0 })}
                     className="w-full bg-white border border-slate-200 rounded px-3 py-1.5 text-xs font-mono font-bold"
@@ -1068,13 +1104,13 @@ export const DriverIntelligenceView: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-800 mb-1">
                   4. Rash Turning Speed Threshold (RTT)
                 </label>
-                <p className="text-[11px] text-slate-500 mb-2">Speed limit during cornering. Default 30 km/h</p>
+                <p className="text-[11px] text-slate-500 mb-2">Allowed 20 km/h to 50 km/h. Default 30 km/h</p>
                 <div className="flex items-center space-x-2">
                   <input
                     type="number"
                     step="1"
-                    min="10"
-                    max="80"
+                    min="20"
+                    max="50"
                     value={imuConfig.rash_turning_speed}
                     onChange={(e) => setImuConfig({ ...imuConfig, rash_turning_speed: parseFloat(e.target.value) || 30.0 })}
                     className="w-full bg-white border border-slate-200 rounded px-3 py-1.5 text-xs font-mono font-bold"
@@ -1088,13 +1124,13 @@ export const DriverIntelligenceView: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-800 mb-1">
                   5. Overspeeding Limit (SL)
                 </label>
-                <p className="text-[11px] text-slate-500 mb-2">Vehicle speed limit in km/h. Default 70 km/h</p>
+                <p className="text-[11px] text-slate-500 mb-2">Allowed 30 km/h to 90 km/h. Default 70 km/h</p>
                 <div className="flex items-center space-x-2">
                   <input
                     type="number"
                     step="1"
-                    min="20"
-                    max="140"
+                    min="30"
+                    max="90"
                     value={imuConfig.speed_limit}
                     onChange={(e) => setImuConfig({ ...imuConfig, speed_limit: parseFloat(e.target.value) || 70.0 })}
                     className="w-full bg-white border border-slate-200 rounded px-3 py-1.5 text-xs font-mono font-bold"
@@ -1108,19 +1144,21 @@ export const DriverIntelligenceView: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-800 mb-1">
                   6. Lateral Acceleration G (HTA)
                 </label>
-                <p className="text-[11px] text-slate-500 mb-2">Harsh turning lateral g-force. Default 0.47g</p>
+                <p className="text-[11px] text-slate-500 mb-2">Allowed 0.30g to 0.65g. Default 0.47g</p>
                 <div className="flex items-center space-x-2">
                   <input
                     type="number"
                     step="0.01"
+                    min="0.30"
+                    max="0.65"
                     value={imuConfig.harsh_turning_g}
-                    disabled
-                    className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-xs font-mono text-slate-500"
+                    onChange={(e) => setImuConfig({ ...imuConfig, harsh_turning_g: parseFloat(e.target.value) || 0.47 })}
+                    className="w-full bg-white border border-slate-200 rounded px-3 py-1.5 text-xs font-mono font-bold"
                   />
                   <span className="text-xs text-slate-600 font-mono">g</span>
                 </div>
               </div>
-            </div>
+            </fieldset>
           )}
 
           {/* Generated AIS-140 Command Box */}
@@ -1130,16 +1168,26 @@ export const DriverIntelligenceView: React.FC = () => {
               <span>Command Type: [SET]</span>
             </div>
             <div className="font-mono text-xs text-sky-400 bg-slate-950 p-2.5 rounded border border-slate-800">
-              SET HBT:{imuConfig?.harsh_brake_threshold},HAT:{imuConfig?.harsh_accel_threshold},TA:{imuConfig?.tilt_angle_threshold},RTT:{imuConfig?.rash_turning_speed},SL:{imuConfig?.speed_limit}
+              SET HBT:{imuConfig?.harsh_brake_threshold ?? 0.55},HAT:{imuConfig?.harsh_accel_threshold ?? 0.43},TA:{imuConfig?.tilt_angle_threshold ?? 45},RTT:{imuConfig?.rash_turning_speed ?? 30},HTA:{imuConfig?.harsh_turning_g ?? 0.47},SL:{imuConfig?.speed_limit ?? 70}
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
             <button
-              onClick={handleSaveIMUConfig}
-              className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-lg shadow-sm transition-colors"
+              type="button"
+              disabled={!canEditSensors}
+              onClick={restoreSensorDefaults}
+              className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-semibold text-xs rounded-lg disabled:cursor-not-allowed disabled:text-slate-400"
             >
-              Save & Dispatch OTA Configuration to Device
+              Restore defaults
+            </button>
+            <button
+              type="button"
+              disabled={!canEditSensors}
+              onClick={handleSaveIMUConfig}
+              className="px-5 py-2.5 bg-sky-600 text-white font-semibold text-xs rounded-lg disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+            >
+              Save sensor limits
             </button>
           </div>
         </div>

@@ -5,6 +5,10 @@ import { withImmediateTransaction } from './transaction.js';
 import { telemetryRepository } from '../db/repositories/telemetryRepository.js';
 import { broadcastWS } from '../services/liveBroadcast.js';
 import GeofenceService from '../services/geofenceService.js';
+import { classifyDriverBehavior } from './driverBehavior.js';
+import { nextOverspeedState } from './overspeedSession.js';
+import { deliverSmsJobs, queueOutboundAlerts } from './alertDispatch.js';
+import { formatFix, lookupPlaceName } from '../services/placeName.js';
 
 const recentPacketCache = new Map();
 
@@ -135,13 +139,68 @@ export function ingestTelemetry(input, meta = {}) {
     }
 
     let panicEventCreated = null;
-    let driverIntelligenceEventCreated = null;
+    const driverIntelligenceEvents = [];
+    const fleetAlerts = [];
+    const smsJobs = [];
+    const placeTargets = { vehicleId: null, speedAlertId: null, towingAlertId: null, panicId: null };
     const gpsTime = canonical.timing.gpsTime
       ? canonical.timing.gpsTime.replace('T', ' ').replace('Z', '')
       : null;
 
     if (device.vehicle_id) {
-      const address = `Near Lat ${position.latitude.toFixed(4)}, Lon ${position.longitude.toFixed(4)}`;
+      const address = formatFix(position.latitude, position.longitude);
+      placeTargets.vehicleId = device.vehicle_id;
+      if (!canonical.alert && canonical.behavior && typeof canonical.behavior === 'object') {
+        try {
+          const imu = db.get('SELECT * FROM device_imu_configs WHERE device_id = ?', [device.id]);
+          canonical.alert = classifyDriverBehavior({
+            ...canonical.behavior,
+            speedKmh: position.speedKmh
+          }, imu || {});
+        } catch (err) {
+          console.error(`[ingest] ${imei} driver behavior skipped: ${err.message}`);
+          canonical.alert = null;
+        }
+      }
+
+      function recordDriverEvent(alert, eventAddress) {
+        if (!alert?.eventType) return null;
+        const eventId = telemetryRepository.insertDriverEvent({
+          tenantId: device.tenant_id,
+          vehicleId: device.vehicle_id,
+          deviceId: device.id,
+          eventType: String(alert.eventType),
+          packetType: alert.packetType ? String(alert.packetType) : 'UNK',
+          alertId: Number.isFinite(Number(alert.alertId)) ? Number(alert.alertId) : 0,
+          severity: alert.severity ? String(alert.severity) : 'WARNING',
+          metricValue: alert.metricValue ? String(alert.metricValue) : String(alert.eventType),
+          thresholdValue: alert.thresholdValue ? String(alert.thresholdValue) : '',
+          speed: Number.isFinite(Number(position.speedKmh)) ? Number(position.speedKmh) : 0,
+          heading: Number.isFinite(Number(position.headingDegrees)) ? Number(position.headingDegrees) : 0,
+          latitude: position.latitude,
+          longitude: position.longitude,
+          address: eventAddress,
+          driverName: device.owner_name || 'Fleet Operator',
+          gpsTime
+        });
+        return {
+          id: eventId,
+          vehicleId: device.vehicle_id,
+          registrationNumber: device.registration_number,
+          driverName: device.owner_name || 'Fleet Operator',
+          eventType: alert.eventType,
+          packetType: alert.packetType,
+          alertId: alert.alertId,
+          severity: alert.severity,
+          metricValue: alert.metricValue,
+          thresholdValue: alert.thresholdValue,
+          speed: position.speedKmh,
+          heading: position.headingDegrees,
+          latitude: position.latitude,
+          longitude: position.longitude,
+          timestamp: new Date().toISOString()
+        };
+      }
       telemetryRepository.upsertLatestLocation({
         vehicleId: device.vehicle_id,
         deviceId: device.id,
@@ -171,12 +230,42 @@ export function ingestTelemetry(input, meta = {}) {
         gpsTime
       });
 
-      GeofenceService.evaluateVehicleGeofences(
+      const geofenceEvents = GeofenceService.evaluateVehicleGeofences(
         device.vehicle_id,
         position.latitude,
         position.longitude,
         position.speedKmh
       );
+      const alertPhones = {
+        owner: device.owner_phone,
+        alternate: device.alternate_phone,
+        emergency: device.emergency_contact_phone
+      };
+      const notify = (kind, body) => {
+        const rows = queueOutboundAlerts(telemetryRepository, {
+          tenantId: device.tenant_id,
+          vehicleId: device.vehicle_id,
+          kind,
+          body,
+          phones: alertPhones
+        });
+        smsJobs.push(...rows.filter((row) => row.channel === 'sms'));
+      };
+
+      for (const geofenceEvent of geofenceEvents) {
+        fleetAlerts.push({
+          alertType: 'geofence',
+          id: `${device.vehicle_id}-${geofenceEvent.geofenceName}-${geofenceEvent.type}`,
+          registrationNumber: device.registration_number,
+          title: `Geofence ${geofenceEvent.type}: ${geofenceEvent.geofenceName}`,
+          address,
+          speed: position.speedKmh,
+          eventTime: gpsTime || new Date().toISOString()
+        });
+        if (geofenceEvent.type === 'entry' || geofenceEvent.type === 'exit') {
+          notify('geofence', `${device.registration_number} geofence ${geofenceEvent.type}: ${geofenceEvent.geofenceName} at ${position.speedKmh} km/h. ${address}`);
+        }
+      }
 
       if (state.panic === 1) {
         const panicId = telemetryRepository.insertPanic({
@@ -193,8 +282,19 @@ export function ingestTelemetry(input, meta = {}) {
           tenantId: device.tenant_id,
           vehicleId: device.vehicle_id,
           title: `EMERGENCY SOS: ${device.registration_number}`,
-          message: `Panic button activated in vehicle ${device.registration_number} at ${position.speedKmh} km/h.`,
+          message: `Panic in ${device.registration_number} at ${position.speedKmh} km/h. Notify owner ${device.owner_phone || 'not set'}, alternate ${device.alternate_phone || 'not set'}, emergency ${device.emergency_contact_phone || 'not set'}.`,
           type: 'panic'
+        });
+        notify('panic', `Emergency: ${device.registration_number} panic at ${position.latitude}, ${position.longitude}, ${position.speedKmh} km/h, ${gpsTime || ''}.`);
+        placeTargets.panicId = panicId;
+        fleetAlerts.push({
+          alertType: 'panic',
+          id: panicId,
+          registrationNumber: device.registration_number,
+          title: `Emergency SOS: ${device.registration_number}`,
+          address,
+          speed: position.speedKmh,
+          eventTime: gpsTime || new Date().toISOString()
         });
         panicEventCreated = {
           id: panicId,
@@ -210,84 +310,147 @@ export function ingestTelemetry(input, meta = {}) {
         };
       }
 
-      if (device.speed_limit && position.speedKmh > device.speed_limit) {
-        const recent = telemetryRepository.findRecentSpeedAlert(device.vehicle_id);
-        if (!recent) {
-          const speedAddress = `Speed violation on route (${position.speedKmh} km/h in ${device.speed_limit} zone)`;
-          telemetryRepository.insertSpeedAlert({
-            tenantId: device.tenant_id,
-            vehicleId: device.vehicle_id,
+      const stamp = gpsTime || new Date().toISOString();
+      const openSpeed = telemetryRepository.findOpenSpeedAlert(device.vehicle_id);
+      const arming = telemetryRepository.findSpeedArming(device.vehicle_id);
+      const decision = nextOverspeedState({
+        speed: position.speedKmh,
+        limit: device.speed_limit,
+        gpsTime: stamp,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        open: openSpeed,
+        arming
+      });
+      if (decision.action === 'clear-arm' && arming) {
+        telemetryRepository.clearSpeedArming(device.vehicle_id);
+      } else if (decision.action === 'arm') {
+        telemetryRepository.saveSpeedArming({
+          vehicleId: device.vehicle_id,
+          startedAt: decision.startedAt,
+          latitude: position.latitude,
+          longitude: position.longitude
+        });
+      } else if (decision.action === 'open') {
+        telemetryRepository.clearSpeedArming(device.vehicle_id);
+        const speedEvent = recordDriverEvent({
+          eventType: 'OVERSPEEDING',
+          packetType: 'OS',
+          alertId: 17,
+          severity: decision.severity,
+          metricValue: `${position.speedKmh} km/h`,
+          thresholdValue: `${device.speed_limit} km/h`
+        }, address);
+        if (speedEvent) driverIntelligenceEvents.push(speedEvent);
+        const speedId = telemetryRepository.insertSpeedAlert({
+          tenantId: device.tenant_id,
+          vehicleId: device.vehicle_id,
+          speed: position.speedKmh,
+          speedLimit: device.speed_limit,
+          latitude: position.latitude,
+          longitude: position.longitude,
+          address,
+          gpsTime: decision.startedAt,
+          endedAt: stamp,
+          severity: decision.severity,
+          distanceKm: decision.distanceKm,
+          driverEventId: speedEvent?.id || null
+        });
+        placeTargets.speedAlertId = speedId;
+        telemetryRepository.insertNotification({
+          tenantId: device.tenant_id,
+          vehicleId: device.vehicle_id,
+          title: `Speed Alert: ${device.registration_number}`,
+          message: `${device.registration_number} reached ${position.speedKmh} km/h. Limit is ${device.speed_limit} km/h. Severity ${decision.severity}.`,
+          type: 'overspeed'
+        });
+        notify('overspeed', `${device.registration_number} at ${position.speedKmh} km/h, limit ${device.speed_limit} km/h, ${decision.severity}. ${address}`);
+        fleetAlerts.push({
+          alertType: 'overspeed',
+          severity: decision.severity,
+          id: speedId,
+          registrationNumber: device.registration_number,
+          title: `Overspeed ${position.speedKmh} km/h`,
+          address,
+          speed: position.speedKmh,
+          eventTime: stamp
+        });
+      } else if (decision.action === 'extend' || decision.action === 'close') {
+        telemetryRepository.progressSpeedAlert(openSpeed.id, {
+          speed: position.speedKmh,
+          gpsTime: stamp,
+          distanceKm: decision.distanceKm,
+          severity: decision.severity,
+          latitude: position.latitude,
+          longitude: position.longitude,
+          closingSince: decision.closingSince,
+          isOpen: decision.isOpen
+        });
+        if (decision.notify && openSpeed.driver_event_id) {
+          telemetryRepository.updateDriverEventSeverity(openSpeed.driver_event_id, decision.severity);
+        }
+        if (decision.notify) {
+          fleetAlerts.push({
+            alertType: 'overspeed',
+            severity: decision.severity,
+            id: openSpeed.id,
+            registrationNumber: device.registration_number,
+            title: `Overspeed ${position.speedKmh} km/h`,
+            address,
             speed: position.speedKmh,
-            speedLimit: device.speed_limit,
-            latitude: position.latitude,
-            longitude: position.longitude,
-            address: speedAddress,
-            gpsTime
-          });
-          telemetryRepository.insertNotification({
-            tenantId: device.tenant_id,
-            vehicleId: device.vehicle_id,
-            title: `Speed Alert: ${device.registration_number}`,
-            message: `${device.registration_number} reached ${position.speedKmh} km/h. Limit is ${device.speed_limit} km/h.`,
-            type: 'overspeed'
-          });
-          telemetryRepository.insertDriverEvent({
-            tenantId: device.tenant_id,
-            vehicleId: device.vehicle_id,
-            deviceId: device.id,
-            eventType: 'OVERSPEEDING',
-            packetType: 'OS',
-            alertId: 17,
-            severity: position.speedKmh - device.speed_limit >= 20 ? 'CRITICAL' : 'WARNING',
-            metricValue: `${position.speedKmh} km/h`,
-            thresholdValue: `${device.speed_limit} km/h`,
-            speed: position.speedKmh,
-            heading: position.headingDegrees,
-            latitude: position.latitude,
-            longitude: position.longitude,
-            address: speedAddress,
-            driverName: device.owner_name || 'Fleet Operator',
-            gpsTime
+            eventTime: stamp
           });
         }
       }
 
-      if (canonical.alert?.eventType) {
-        const eventId = telemetryRepository.insertDriverEvent({
-          tenantId: device.tenant_id,
-          vehicleId: device.vehicle_id,
-          deviceId: device.id,
+      const towing = state.ignition === 0 && position.speedKmh > 2;
+      const openTowing = telemetryRepository.findOpenTowingAlert(device.vehicle_id);
+      if (towing) {
+        if (openTowing) {
+          telemetryRepository.extendTowingAlert(openTowing.id, { speed: position.speedKmh, gpsTime });
+        } else {
+          const towingId = telemetryRepository.insertTowingAlert({
+            tenantId: device.tenant_id,
+            vehicleId: device.vehicle_id,
+            speed: position.speedKmh,
+            latitude: position.latitude,
+            longitude: position.longitude,
+            address,
+            gpsTime
+          });
+          placeTargets.towingAlertId = towingId;
+          telemetryRepository.insertNotification({
+            tenantId: device.tenant_id,
+            vehicleId: device.vehicle_id,
+            title: `Towing: ${device.registration_number}`,
+            message: `${device.registration_number} is moving at ${position.speedKmh} km/h with ignition off.`,
+            type: 'towing'
+          });
+          fleetAlerts.push({
+            alertType: 'towing',
+            id: towingId,
+            registrationNumber: device.registration_number,
+            title: `Towing ${position.speedKmh} km/h`,
+            address,
+            speed: position.speedKmh,
+            eventTime: gpsTime || new Date().toISOString()
+          });
+          notify('towing', `Towing: ${device.registration_number} is moving at ${position.speedKmh} km/h with ignition off. ${address}`);
+        }
+      } else if (openTowing) {
+        telemetryRepository.closeTowingAlert(openTowing.id, gpsTime);
+      }
+
+      if (canonical.alert?.eventType && canonical.alert.eventType !== 'OVERSPEEDING') {
+        const behaviorEvent = recordDriverEvent({
           eventType: canonical.alert.eventType,
           packetType: canonical.alert.packetType || canonical.protocol,
           alertId: canonical.alert.alertId || 0,
           severity: canonical.alert.severity || 'WARNING',
           metricValue: canonical.alert.metricValue || String(position.speedKmh),
-          thresholdValue: canonical.alert.thresholdValue || '',
-          speed: position.speedKmh,
-          heading: position.headingDegrees,
-          latitude: position.latitude,
-          longitude: position.longitude,
-          address,
-          driverName: device.owner_name || 'Fleet Operator',
-          gpsTime
-        });
-        driverIntelligenceEventCreated = {
-          id: eventId,
-          vehicleId: device.vehicle_id,
-          registrationNumber: device.registration_number,
-          driverName: device.owner_name || 'Fleet Operator',
-          eventType: canonical.alert.eventType,
-          packetType: canonical.alert.packetType || canonical.protocol,
-          alertId: canonical.alert.alertId || 0,
-          severity: canonical.alert.severity || 'WARNING',
-          metricValue: canonical.alert.metricValue || String(position.speedKmh),
-          thresholdValue: canonical.alert.thresholdValue || '',
-          speed: position.speedKmh,
-          heading: position.headingDegrees,
-          latitude: position.latitude,
-          longitude: position.longitude,
-          timestamp: new Date().toISOString()
-        };
+          thresholdValue: canonical.alert.thresholdValue || ''
+        }, address);
+        if (behaviorEvent) driverIntelligenceEvents.push(behaviorEvent);
       }
     }
 
@@ -307,11 +470,20 @@ export function ingestTelemetry(input, meta = {}) {
       ignition: state.ignition,
       movementStatus: state.movementStatus,
       panicEventCreated,
-      driverIntelligenceEventCreated,
+      driverIntelligenceEventCreated: driverIntelligenceEvents[0] || null,
+      driverIntelligenceEvents,
+      fleetAlerts,
+      placeTargets,
       canonical: publicCanonical(canonical),
-      ack: ack(imei, 'SUCCESS')
+      ack: ack(imei, 'SUCCESS'),
+      smsJobs
     };
   });
+
+  if (outcome.smsJobs?.length) {
+    deliverSmsJobs(outcome.smsJobs).catch(() => {});
+    delete outcome.smsJobs;
+  }
 
   if (outcome.status === 'PROCESSED' && cacheKey) {
     recentPacketCache.set(cacheKey, nowMs);
@@ -319,6 +491,22 @@ export function ingestTelemetry(input, meta = {}) {
   }
 
   if (outcome.status === 'PROCESSED' && outcome.vehicle_id) {
+    const targets = outcome.placeTargets;
+    if (targets?.vehicleId) {
+      lookupPlaceName(outcome.latitude, outcome.longitude).then((place) => {
+        if (!place) return;
+        telemetryRepository.updateFixAddress({
+          ...targets,
+          address: formatFix(outcome.latitude, outcome.longitude, place)
+        });
+      }).catch(() => {});
+    }
+    for (const event of outcome.driverIntelligenceEvents || []) {
+      broadcastWS({ type: 'DRIVER_INTELLIGENCE_EVENT', data: event });
+    }
+    for (const alert of outcome.fleetAlerts || []) {
+      broadcastWS({ type: 'FLEET_ALERT', data: alert });
+    }
     broadcastWS({
       type: 'LOCATION_UPDATE',
       data: {

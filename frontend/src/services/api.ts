@@ -40,6 +40,39 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
   return response.json();
 }
 
+export async function downloadFile(endpoint: string, filename: string) {
+  const token = getAuthToken();
+  const headers = new Headers();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  const response = await fetch(`${API_BASE}${endpoint}`, { headers });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Download failed' }));
+    throw new Error(errorData.error || `HTTP error ${response.status}`);
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function openFile(endpoint: string) {
+  const token = getAuthToken();
+  const headers = new Headers();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  const response = await fetch(`${API_BASE}${endpoint}`, { headers });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Could not open the report' }));
+    throw new Error(errorData.error || `HTTP error ${response.status}`);
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank', 'noopener');
+  window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
 /**
  * Real-time WebSocket connection to backend telematics stream
  */

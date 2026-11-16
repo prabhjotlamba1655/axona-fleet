@@ -70,6 +70,60 @@ class AudioAlertService {
     }
   }
 
+  public playSeverity(severity: string) {
+    if (this.isMuted || severity === 'ADVISORY') return;
+    const repeats = severity === 'CRITICAL' ? 3 : severity === 'HIGH' ? 2 : 1;
+    this.playAlertChime();
+    for (let index = 1; index < repeats; index += 1) {
+      window.setTimeout(() => this.playAlertChime(), index * 180);
+    }
+  }
+
+  public playTowingAlarm() {
+    if (this.isMuted) return;
+    try {
+      this.initContext();
+      if (!this.audioCtx) return;
+      const now = this.audioCtx.currentTime;
+      [0, 0.28, 0.56].forEach((offset, index) => {
+        const oscillator = this.audioCtx!.createOscillator();
+        const gain = this.audioCtx!.createGain();
+        oscillator.type = 'square';
+        oscillator.frequency.value = index % 2 === 0 ? 520 : 740;
+        gain.gain.setValueAtTime(0.0001, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.06, now + offset + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.22);
+        oscillator.connect(gain);
+        gain.connect(this.audioCtx!.destination);
+        oscillator.start(now + offset);
+        oscillator.stop(now + offset + 0.24);
+      });
+    } catch (e) {
+      console.warn('Towing alarm could not play:', e);
+    }
+  }
+
+  public playAlertChime() {
+    if (this.isMuted) return;
+    try {
+      this.initContext();
+      if (!this.audioCtx) return;
+      const oscillator = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, this.audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.08, this.audioCtx.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime + 0.35);
+      oscillator.connect(gain);
+      gain.connect(this.audioCtx.destination);
+      oscillator.start();
+      oscillator.stop(this.audioCtx.currentTime + 0.36);
+    } catch (e) {
+      console.warn('Alert chime could not play:', e);
+    }
+  }
+
   public stopAlarm() {
     if (this.activeOscillator) {
       try {

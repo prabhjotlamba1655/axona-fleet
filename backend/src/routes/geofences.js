@@ -58,6 +58,21 @@ router.post('/', authorize(['super_admin', 'company_admin']), (req, res) => {
     return res.status(400).json({ error: 'Geofence name is required' });
   }
 
+  const shape = fence_type || 'circle';
+  const lat = Number(center_lat);
+  const lng = Number(center_lng);
+  const radius = Number(radius_meters);
+  const zoneSpeed = Number(speed_limit);
+  if (shape === 'circle') {
+    const missingFix = !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180 || (lat === 0 && lng === 0);
+    if (missingFix) {
+      return res.status(400).json({ error: 'Choose a vehicle with a current fix, or click the map, before saving a circle.' });
+    }
+    if (!Number.isFinite(radius) || radius <= 0) {
+      return res.status(400).json({ error: 'Circle radius must be greater than 0 meters.' });
+    }
+  }
+
   const fenceId = `geo_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
   db.run(`
@@ -70,14 +85,14 @@ router.post('/', authorize(['super_admin', 'company_admin']), (req, res) => {
     req.user.tenant_id,
     name,
     description || null,
-    fence_type || 'circle',
-    center_lat || 18.5204,
-    center_lng || 73.8567,
-    radius_meters || 1000,
+    shape,
+    Number.isFinite(lat) ? lat : null,
+    Number.isFinite(lng) ? lng : null,
+    Number.isFinite(radius) && radius > 0 ? radius : null,
     coordinates_json ? (typeof coordinates_json === 'string' ? coordinates_json : JSON.stringify(coordinates_json)) : null,
     alert_on_entry !== undefined ? (alert_on_entry ? 1 : 0) : 1,
     alert_on_exit !== undefined ? (alert_on_exit ? 1 : 0) : 1,
-    speed_limit || null
+    Number.isFinite(zoneSpeed) && zoneSpeed > 0 ? zoneSpeed : null
   ]);
 
   // Assign vehicles

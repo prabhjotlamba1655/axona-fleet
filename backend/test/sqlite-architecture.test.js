@@ -10,6 +10,16 @@ import path from 'node:path';
 import { after, afterEach, beforeEach, describe, test } from 'node:test';
 import { createFirstAdministrator, loginWithPassword } from '../src/core/accounts.js';
 import { crc16Ibm, takeAvlPacket } from '../src/core/adapters/teltonikaCodec8.js';
+import { greenDrivingAlert } from '../src/core/adapters/teltonikaAdapter.js';
+import { rankLeaderboard, riskTier, safetyScore } from '../src/core/driverScore.js';
+import { validateImuConfig } from '../src/core/imuBounds.js';
+import { nextOverspeedState } from '../src/core/overspeedSession.js';
+import { markStoppages } from '../src/core/stoppages.js';
+import { APPROVED_SMS_TEXT, interpretSmsResponse, normalizeSmsMobile, quickSmsFields, readSmsConfig } from '../src/core/smsGateway.js';
+import { istMidnightUtcStamp } from '../src/core/istTime.js';
+import { buildTablePdf } from '../src/core/simplePdf.js';
+import { sessionsFromHistory } from '../src/core/tripSessions.js';
+import GeofenceService, { calculateDistanceMeters, isPointInPolygon } from '../src/services/geofenceService.js';
 import { getConfig } from '../src/config/index.js';
 import { frameSentence } from '../src/core/canonicalTelemetry.js';
 import { ingestTelemetry } from '../src/core/ingestPipeline.js';
@@ -159,7 +169,7 @@ describe('embedded sqlite architecture', { concurrency: false }, () => {
   });
 
   test('JSON and Teltonika payloads normalize into the same tables', () => {
-    const jsonResult = ingestTelemetry({
+    ingestTelemetry({
       protocol: 'json',
       imei: '864201045892110',
       latitude: 18.6,
@@ -167,7 +177,19 @@ describe('embedded sqlite architecture', { concurrency: false }, () => {
       speedKmh: 90,
       heading: 80,
       ignition: 1,
-      satellites: 11
+      satellites: 11,
+      gpsTime: '2026-11-15T10:00:00Z'
+    });
+    const jsonResult = ingestTelemetry({
+      protocol: 'json',
+      imei: '864201045892110',
+      latitude: 18.61,
+      longitude: 73.75,
+      speedKmh: 90,
+      heading: 80,
+      ignition: 1,
+      satellites: 11,
+      gpsTime: '2026-11-15T10:00:06Z'
     });
     assert.equal(jsonResult.status, 'PROCESSED');
     assert.equal(jsonResult.canonical.protocol, 'json');
@@ -205,6 +227,302 @@ describe('embedded sqlite architecture', { concurrency: false }, () => {
     assert.match(codec.ack, /^\$NAK,/);
   });
 
+  test('driver intelligence scores, Teltonika green driving, and overspeed stay consistent', () => {
+    assert.equal(safetyScore({ harshBraking: 1, harshAccel: 1, rashDriving: 1, overspeeding: 1 }), 89);
+    assert.equal(safetyScore({ overspeeding: 1, overspeedPenalty: 5 }), 95);
+    assert.equal(validateImuConfig({ harshBrake: 0.1, harshAccel: 0.43, tiltAngle: 45, rashTurning: 30, harshTurning: 0.47, speedLimit: 70 }).ok, false);
+    assert.equal(nextOverspeedState({ speed: 90, limit: 65, gpsTime: '2026-11-15T10:00:00Z', latitude: 18, longitude: 73, open: null, arming: null }).action, 'arm');
+    assert.equal(safetyScore({ vehicleTilt: 1 }), 90);
+    assert.equal(riskTier(90, 1), 'High Risk');
+    assert.equal(riskTier(100, 0), 'Safe');
+    assert.equal(greenDrivingAlert({ 253: 2, 254: 70 }).eventType, 'HARSH_BRAKING');
+    assert.equal(greenDrivingAlert({ 253: 2, 254: 70 }).metricValue, '-0.70g deceleration');
+    assert.equal(greenDrivingAlert({ 253: 0 }), null);
+
+    const ranked = rankLeaderboard([
+      { vehicle_id: 'a', registration_number: 'A', make: 'Tata', model: 'Nexon', owner_name: 'A', total_violations: 1, vehicle_tilt_count: 1 },
+      { vehicle_id: 'b', registration_number: 'B', make: 'Tata', model: 'Nexon', owner_name: 'B', total_violations: 4, overspeeding_count: 4 }
+    ]);
+    assert.equal(ranked[0].registrationNumber, 'B');
+    assert.equal(ranked[0].safetyScore, 92);
+    assert.equal(ranked[1].registrationNumber, 'A');
+    assert.equal(ranked[1].riskTier, 'High Risk');
+    assert.equal(ranked[1].rank, 2);
+
+    const brake = ingestTelemetry('$ALT,TNOWTN,1.2.0,HB,13,L,864201045892110,MH-12-RN-2024,1,15112026,120000,18.600000,N,073.750000,E,40.0,90.0,14,560,0.8,0.9,Airtel,1');
+    assert.equal(brake.driverIntelligenceEventCreated.eventType, 'HARSH_BRAKING');
+    assert.equal(brake.driverIntelligenceEventCreated.alertId, 13);
+
+    const corner = ingestTelemetry({
+      protocol: 'teltonika',
+      imei: '864201045892112',
+      latitude: 18.53,
+      longitude: 73.86,
+      speed: 32,
+      angle: 10,
+      io: { 239: 1, 253: 3, 254: 55 }
+    });
+    assert.equal(corner.driverIntelligenceEventCreated.eventType, 'RASH_DRIVING');
+    assert.equal(corner.ignition, 1);
+
+    ingestTelemetry({
+      protocol: 'json',
+      imei: '864201045892110',
+      latitude: 18.61,
+      longitude: 73.76,
+      speedKmh: 90,
+      ignition: 1,
+      gpsTime: '2026-11-15T11:00:00Z'
+    });
+    ingestTelemetry({
+      protocol: 'json',
+      imei: '864201045892110',
+      latitude: 18.62,
+      longitude: 73.77,
+      speedKmh: 95,
+      ignition: 1,
+      gpsTime: '2026-11-15T11:00:06Z'
+    });
+    const overspeed = db.get(`SELECT COUNT(*) as count FROM driver_intelligence_events WHERE vehicle_id = 'veh_1' AND event_type = 'OVERSPEEDING'`);
+    assert.equal(overspeed.count, 1);
+
+    const shared = ingestTelemetry({
+      protocol: 'json',
+      imei: '864201045892112',
+      latitude: 18.7,
+      longitude: 73.8,
+      speedKmh: 42,
+      ignition: 1,
+      brakeG: 0.7
+    });
+    assert.equal(shared.driverIntelligenceEventCreated.eventType, 'HARSH_BRAKING');
+    const below = ingestTelemetry({
+      protocol: 'json',
+      imei: '864201045892112',
+      latitude: 18.71,
+      longitude: 73.81,
+      speedKmh: 42,
+      ignition: 1,
+      brakeG: 0.4
+    });
+    assert.equal(below.driverIntelligenceEventCreated, null);
+
+    db.run(`INSERT INTO device_imu_configs (device_id, harsh_brake_threshold) VALUES ('dev_101', 0.9)`);
+    const raised = ingestTelemetry({
+      protocol: 'json',
+      imei: '864201045892110',
+      latitude: 18.72,
+      longitude: 73.82,
+      speedKmh: 40,
+      ignition: 1,
+      longitudinalG: -0.7
+    });
+    assert.equal(raised.driverIntelligenceEventCreated, null);
+
+    const named = ingestTelemetry({
+      protocol: 'json',
+      imei: '864201045892110',
+      latitude: 18.73,
+      longitude: 73.83,
+      speedKmh: 30,
+      ignition: 1,
+      event: 'harsh acceleration'
+    });
+    assert.equal(named.driverIntelligenceEventCreated.eventType, 'HARSH_ACCEL');
+
+    const axes = ingestTelemetry({
+      protocol: 'teltonika',
+      imei: '864201045892112',
+      latitude: 18.74,
+      longitude: 73.84,
+      speed: 36,
+      io: { 17: -100, 18: 520, 19: 980 }
+    });
+    assert.equal(axes.driverIntelligenceEventCreated.eventType, 'RASH_DRIVING');
+
+    const osFirst = ingestTelemetry('$ALT,TNOWTN,1.2.0,OS,17,L,864201045892112,MH-14-GH-5566,1,15112026,120200,18.540000,N,073.870000,E,88.0,20.0,12,560,0.8,0.9,Airtel,1');
+    assert.equal(osFirst.driverIntelligenceEvents.length, 0);
+    const osPacket = ingestTelemetry('$ALT,TNOWTN,1.2.0,OS,17,L,864201045892112,MH-14-GH-5566,1,15112026,120208,18.541000,N,073.871000,E,88.0,20.0,12,560,0.8,0.9,Airtel,1');
+    assert.equal(osPacket.driverIntelligenceEvents.length, 1);
+    assert.equal(osPacket.driverIntelligenceEvents[0].eventType, 'OVERSPEEDING');
+  });
+
+  test('a position without behavior sensors still commits and leaves the score untouched', () => {
+    const jsonOnly = ingestTelemetry({
+      protocol: 'json',
+      imei: '864201045892110',
+      latitude: 18.81,
+      longitude: 73.91,
+      acceleration: 'n/a',
+      tilt: 'unknown',
+      brakeG: 'fast'
+    });
+    assert.equal(jsonOnly.status, 'PROCESSED');
+    assert.equal(jsonOnly.driverIntelligenceEventCreated, null);
+    assert.equal(jsonOnly.speed, 0);
+
+    const teltonikaOnly = ingestTelemetry({
+      protocol: 'teltonika',
+      imei: '864201045892112',
+      latitude: 18.82,
+      longitude: 73.92,
+      io: null
+    });
+    assert.equal(teltonikaOnly.status, 'PROCESSED');
+    assert.equal(teltonikaOnly.driverIntelligenceEventCreated, null);
+
+    const named = rankLeaderboard([
+      { vehicle_id: 'bare', registration_number: 'BARE', make: null, model: null, owner_name: null }
+    ]);
+    assert.equal(named[0].vehicleName, 'Vehicle');
+    assert.equal(named[0].driverName, 'Assigned Driver');
+    assert.equal(named[0].safetyScore, 100);
+
+    const stored = db.get(`SELECT latitude, speed FROM latest_vehicle_locations WHERE vehicle_id = 'veh_1'`);
+    assert.equal(stored.latitude, 18.81);
+    assert.equal(stored.speed, 0);
+    const events = db.get(`SELECT COUNT(*) AS count FROM driver_intelligence_events`);
+    assert.equal(events.count, 0);
+  });
+
+  test('towing, one overspeed episode, and stoppages use the written rules', () => {
+    const towed = ingestTelemetry({
+      protocol: 'json',
+      imei: '864201045892112',
+      latitude: 18.9,
+      longitude: 73.9,
+      speedKmh: 8,
+      ignition: 0
+    });
+    assert.equal(towed.movementStatus, 'towing');
+    ingestTelemetry({
+      protocol: 'json',
+      imei: '864201045892112',
+      latitude: 18.91,
+      longitude: 73.91,
+      speedKmh: 9,
+      ignition: 0
+    });
+    const towing = db.get(`SELECT COUNT(*) as count, MAX(is_open) as open FROM towing_alerts WHERE vehicle_id = 'veh_tel'`);
+    assert.equal(towing.count, 1);
+    assert.equal(towing.open, 1);
+
+    ingestTelemetry({
+      protocol: 'json',
+      imei: '864201045892110',
+      latitude: 18.2,
+      longitude: 73.2,
+      speedKmh: 90,
+      ignition: 1,
+      gpsTime: '2026-11-15T10:00:00Z'
+    });
+    const armedOnly = db.get(`SELECT COUNT(*) as count FROM speed_alerts WHERE vehicle_id = 'veh_1'`);
+    assert.equal(armedOnly.count, 0);
+    ingestTelemetry({
+      protocol: 'json',
+      imei: '864201045892110',
+      latitude: 18.21,
+      longitude: 73.21,
+      speedKmh: 100,
+      ignition: 1,
+      gpsTime: '2026-11-15T10:00:06Z'
+    });
+    ingestTelemetry({
+      protocol: 'json',
+      imei: '864201045892110',
+      latitude: 18.22,
+      longitude: 73.22,
+      speedKmh: 20,
+      ignition: 1,
+      gpsTime: '2026-11-15T10:08:00Z'
+    });
+    const stillOpen = db.get(`SELECT is_open FROM speed_alerts WHERE vehicle_id = 'veh_1'`);
+    assert.equal(stillOpen.is_open, 1);
+    ingestTelemetry({
+      protocol: 'json',
+      imei: '864201045892110',
+      latitude: 18.23,
+      longitude: 73.23,
+      speedKmh: 18,
+      ignition: 1,
+      gpsTime: '2026-11-15T10:08:11Z'
+    });
+    const episode = db.get(`SELECT COUNT(*) as count, MAX(max_speed) as peak, MAX(is_open) as open, MAX(distance_km) as distance, MAX(severity) as severity FROM speed_alerts WHERE vehicle_id = 'veh_1'`);
+    assert.equal(episode.count, 1);
+    assert.equal(episode.peak, 100);
+    assert.equal(episode.open, 0);
+    assert.equal(episode.severity, 'CRITICAL');
+    assert.ok(episode.distance > 0);
+    const sms = db.get(`SELECT status FROM alert_dispatches WHERE vehicle_id = 'veh_1' AND channel = 'sms'`);
+    assert.equal(sms.status, 'pending_config');
+
+    const stops = markStoppages([
+      { speed: 0, ignition: 0, gps_time: '2026-11-15 10:00:00' },
+      { speed: 0, ignition: 0, gps_time: '2026-11-15 10:04:00' },
+      { speed: 10, ignition: 1, gps_time: '2026-11-15 10:05:00' },
+      { speed: 0, ignition: 0, gps_time: '2026-11-15 10:06:00' }
+    ]);
+    const parked = markStoppages([
+      { speed: 2, ignition: 0, gps_time: '2026-11-15 10:10:00' },
+      { speed: 1, ignition: 0, gps_time: '2026-11-15 10:13:00' },
+      { speed: 20, ignition: 1, gps_time: '2026-11-15 10:14:00' }
+    ]);
+    const engineOn = markStoppages([
+      { speed: 1, ignition: 1, gps_time: '2026-11-15 11:00:00' },
+      { speed: 0, ignition: 1, gps_time: '2026-11-15 11:04:00' }
+    ]);
+    const sessions = sessionsFromHistory([
+      { vehicle_id: 'veh_1', latitude: 28.59, longitude: 77.38, speed: 10, gps_time: '2026-11-15 10:00:00' },
+      { vehicle_id: 'veh_1', latitude: 28.60, longitude: 77.39, speed: 20, gps_time: '2026-11-15 10:10:00' },
+      { vehicle_id: 'veh_1', latitude: 28.70, longitude: 77.50, speed: 30, gps_time: '2026-11-15 12:00:00' },
+      { vehicle_id: 'veh_1', latitude: 28.71, longitude: 77.51, speed: 15, gps_time: '2026-11-15 12:05:00' }
+    ]);
+    assert.equal(sessions.length, 2);
+    assert.equal(stops[0].is_stop, 1);
+    assert.equal(stops[0].stop_duration_min, 4);
+    assert.equal(stops[3].is_stop, 0);
+    assert.equal(parked[0].is_stop, 1);
+    assert.equal(parked[0].stop_duration_min, 3);
+    assert.equal(engineOn[0].is_stop, 0);
+    const noisyPark = markStoppages([
+      { speed: 16, ignition: 0, latitude: 28.6, longitude: 77.38, gps_time: '2026-11-15 18:17:00' },
+      { speed: 12, ignition: 0, latitude: 28.6001, longitude: 77.3801, gps_time: '2026-11-15 19:50:00' },
+      { speed: 40, ignition: 1, latitude: 28.61, longitude: 77.4, gps_time: '2026-11-15 19:52:00' }
+    ]);
+    assert.equal(noisyPark[0].is_stop, 1);
+    assert.equal(noisyPark[0].stop_duration_min, 93);
+    const departed = sessionsFromHistory([
+      { vehicle_id: 'veh_1', latitude: 28.6, longitude: 77.38, speed: 16, ignition: 0, gps_time: '2026-11-15 18:17:00' },
+      { vehicle_id: 'veh_1', latitude: 28.6001, longitude: 77.3801, speed: 12, ignition: 0, gps_time: '2026-11-15 18:22:00' },
+      { vehicle_id: 'veh_1', latitude: 28.6001, longitude: 77.3801, speed: 8, ignition: 0, gps_time: '2026-11-15 18:27:00' },
+      { vehicle_id: 'veh_1', latitude: 28.61, longitude: 77.4, speed: 40, ignition: 1, gps_time: '2026-11-15 18:30:00' },
+      { vehicle_id: 'veh_1', latitude: 28.7, longitude: 77.5, speed: 50, ignition: 1, gps_time: '2026-11-15 18:40:00' }
+    ]);
+    assert.equal(departed.length, 1);
+    assert.equal(departed[0].start_time, '2026-11-15 18:30:00');
+    assert.equal(departed[0].duration_minutes, 10);
+    assert.equal(departed[0].stoppage_minutes, 0);
+    const sitting = sessionsFromHistory([
+      { vehicle_id: 'veh_1', latitude: 28.6, longitude: 77.38, speed: 0, ignition: 1, gps_time: '2026-11-15 07:44:00' },
+      { vehicle_id: 'veh_1', latitude: 28.6, longitude: 77.38, speed: 0, ignition: 1, gps_time: '2026-11-15 10:36:00' }
+    ]);
+    assert.equal(sitting.length, 0);
+  });
+
+  test('NavIC speed uses the same overspeed score as every other tracker', () => {
+    ingestTelemetry({
+      imei: '864201045892110',
+      packet: frameSentence('GNRMC,143100.00,A,1836.0000,N,07345.0000,E,50.00,90.0,131126,,,A')
+    });
+    const navic = ingestTelemetry({
+      imei: '864201045892110',
+      packet: frameSentence('GNRMC,143106.00,A,1836.1000,N,07345.1000,E,50.00,90.0,131126,,,A')
+    });
+    assert.equal(navic.protocol, 'navic-nmea');
+    assert.equal(navic.driverIntelligenceEventCreated.eventType, 'OVERSPEEDING');
+    assert.equal(navic.driverIntelligenceEventCreated.alertId, 17);
+  });
+
   test('AIS-140 panic frame is stored before the success ACK', () => {
     const result = ingestTelemetry('$PVT,864201045892110,13112026,143000,18.600000,N,073.750000,E,10.0,90.0,14,560,1,1,1,0*00');
     assert.equal(result.status, 'PROCESSED');
@@ -215,6 +533,8 @@ describe('embedded sqlite architecture', { concurrency: false }, () => {
     const panic = db.get(`SELECT status, vehicle_id FROM panic_events WHERE id = ?`, [result.panicEventCreated.id]);
     assert.equal(panic.status, 'New');
     assert.equal(panic.vehicle_id, 'veh_1');
+    const erss = db.get(`SELECT status FROM alert_dispatches WHERE vehicle_id = 'veh_1' AND channel = 'erss112'`);
+    assert.equal(erss.status, 'pending_config');
   });
 
   test('invalid NMEA checksum is committed as a rejection and does not move the vehicle', () => {
@@ -295,6 +615,34 @@ describe('embedded sqlite architecture', { concurrency: false }, () => {
     }
   });
 
+  test('geofence entry, exit, and zone speed follow the live fix', () => {
+    const punePolygon = [[18.535, 73.840], [18.540, 73.870], [18.510, 73.875], [18.505, 73.845]];
+    assert.equal(isPointInPolygon([18.5204, 73.8567], punePolygon), true);
+    assert.equal(isPointInPolygon([28.592802, 77.380893], punePolygon), false);
+
+    const yard = { lat: 28.6077, lng: 77.373004, radius: 200 };
+    const parked = { lat: 28.592802, lng: 77.380893 };
+    assert.equal(calculateDistanceMeters(parked.lat, parked.lng, yard.lat, yard.lng) > yard.radius, true);
+
+    db.run(`
+      INSERT INTO geofences (
+        id, tenant_id, name, fence_type, center_lat, center_lng, radius_meters,
+        alert_on_entry, alert_on_exit, speed_limit, is_active
+      ) VALUES ('geo_yard', 'tenant_test', 'Noida yard', 'circle', ?, ?, ?, 1, 1, 30, 1)
+    `, [yard.lat, yard.lng, yard.radius]);
+    db.run(`INSERT INTO geofence_vehicles (geofence_id, vehicle_id) VALUES ('geo_yard', 'veh_1')`);
+
+    assert.deepEqual(GeofenceService.evaluateVehicleGeofences('veh_1', parked.lat, parked.lng, 0).map(event => event.type), []);
+
+    const entry = GeofenceService.evaluateVehicleGeofences('veh_1', yard.lat, yard.lng, 40).map(event => event.type);
+    assert.deepEqual(entry.sort(), ['entry', 'overspeed']);
+    assert.deepEqual(GeofenceService.evaluateVehicleGeofences('veh_1', yard.lat, yard.lng, 40).map(event => event.type), []);
+
+    assert.deepEqual(GeofenceService.evaluateVehicleGeofences('veh_1', parked.lat, parked.lng, 0).map(event => event.type), ['exit']);
+    const again = GeofenceService.evaluateVehicleGeofences('veh_1', yard.lat, yard.lng, 10).map(event => event.type);
+    assert.deepEqual(again, ['entry']);
+  });
+
   test('VACUUM INTO writes a consistent snapshot of the live database', () => {
     ingestTelemetry({
       protocol: 'json',
@@ -308,6 +656,52 @@ describe('embedded sqlite architecture', { concurrency: false }, () => {
     assert.equal(fs.existsSync(snapshot.path), true);
     assert.ok(snapshot.bytes > 0);
     assert.equal(path.basename(path.dirname(snapshot.path)), 'backups');
+  });
+
+  test('today starts at 00:00 India time and a report pdf is a real pdf', () => {
+    assert.equal(istMidnightUtcStamp(new Date('2026-11-16T16:46:00Z')), '2026-11-15 18:30:00');
+    assert.equal(istMidnightUtcStamp(new Date('2026-11-16T18:40:00Z')), '2026-11-16 18:30:00');
+    const pdf = buildTablePdf({
+      title: 'Overspeeding Report',
+      subtitle: 'User data since today 00:00 hrs',
+      rows: [{ vehicle: 'UP16DZ0148', speed: 47 }]
+    });
+    assert.equal(pdf.subarray(0, 5).toString(), '%PDF-');
+    assert.ok(pdf.includes(Buffer.from('Overspeeding Report')));
+  });
+
+  test('quick sms matches the sms.axona.in collection', () => {
+    assert.equal(normalizeSmsMobile('+91 98765-43210'), '919876543210');
+    assert.equal(normalizeSmsMobile('09876543210'), '919876543210');
+    const fields = quickSmsFields({
+      mobile: '919876543210',
+      message: APPROVED_SMS_TEXT,
+      templateId: '1177179214957905146',
+      config: {
+        userId: 'axonasoftware',
+        password: 'secret',
+        senderId: 'AXONAT',
+        entityId: '1101662370000099232'
+      }
+    });
+    assert.equal(fields.userid, 'axonasoftware');
+    assert.equal(fields.senderid, 'AXONAT');
+    assert.equal(fields.dltEntityId, '1101662370000099232');
+    assert.equal(fields.sendMethod, 'quick');
+    assert.equal(fields.msgType, 'text');
+    assert.equal(fields.output, 'json');
+    assert.equal(fields.duplicatecheck, 'true');
+    assert.equal(fields.mobile, '919876543210');
+    assert.equal(fields.dltTemplateId, '1177179214957905146');
+    assert.match(fields.msg, /Call 9773936790 -Axona Software LLP$/);
+    assert.equal(interpretSmsResponse(true, '{"status":"success","statusCode":"200","reason":"success"}').ok, true);
+    assert.equal(interpretSmsResponse(true, '{"status":"error","statusCode":"102","reason":"Authentication failure"}').ok, false);
+    const blocked = readSmsConfig({ SMS_PASSWORD: '' });
+    assert.equal(blocked.ready, false);
+    assert.equal(blocked.templateId, '1177179214957905146');
+    const ready = readSmsConfig({ SMS_PASSWORD: 'secret' });
+    assert.equal(ready.ready, true);
+    assert.equal(ready.url, 'https://sms.axona.in/SMSApi/send');
   });
 });
 

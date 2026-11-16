@@ -44,6 +44,7 @@ export const VehiclesView: React.FC = () => {
     manufacturing_year: 2024,
     owner_name: '',
     owner_phone: '',
+    alternate_phone: '',
     emergency_contact_phone: '',
     speed_limit: 80,
     is_active: 1,
@@ -88,6 +89,7 @@ export const VehiclesView: React.FC = () => {
       manufacturing_year: 2024,
       owner_name: user?.name || '',
       owner_phone: user?.phone || '',
+      alternate_phone: '',
       emergency_contact_phone: '',
       speed_limit: 80,
       is_active: 1,
@@ -112,13 +114,14 @@ export const VehiclesView: React.FC = () => {
       manufacturing_year: v.manufacturing_year || 2024,
       owner_name: v.owner_name,
       owner_phone: v.owner_phone,
+      alternate_phone: v.alternate_phone || '',
       emergency_contact_phone: v.emergency_contact_phone,
       speed_limit: v.speed_limit,
       is_active: v.is_active,
       device_imei: v.device_imei || '',
       device_manufacturer_id: 'mfg_ais140',
       device_model: v.device_model || 'AX-140-Pro',
-      sim_number: '',
+      sim_number: v.sim_number || '',
       installation_date: v.installation_date || ''
     });
     setFormError(null);
@@ -403,7 +406,8 @@ export const VehiclesView: React.FC = () => {
                     placeholder="e.g. MH-12-RN-2024"
                     value={formData.registration_number}
                     onChange={e => setFormData({ ...formData, registration_number: e.target.value })}
-                    className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 uppercase font-mono font-bold"
+                    disabled={isEditModalOpen}
+                    className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 uppercase font-mono font-bold disabled:bg-slate-100 disabled:text-slate-500"
                   />
                 </div>
 
@@ -412,7 +416,8 @@ export const VehiclesView: React.FC = () => {
                   <select
                     value={formData.category_id}
                     onChange={e => setFormData({ ...formData, category_id: e.target.value })}
-                    className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium"
+                    disabled={isEditModalOpen}
+                    className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium disabled:bg-slate-100 disabled:text-slate-500"
                   >
                     {categories.map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
@@ -428,7 +433,8 @@ export const VehiclesView: React.FC = () => {
                     placeholder="e.g. Tata Motors, BharatBenz, Maruti"
                     value={formData.make}
                     onChange={e => setFormData({ ...formData, make: e.target.value })}
-                    className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50"
+                    disabled={isEditModalOpen}
+                    className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 disabled:bg-slate-100 disabled:text-slate-500"
                   />
                 </div>
 
@@ -440,7 +446,8 @@ export const VehiclesView: React.FC = () => {
                     placeholder="e.g. Prima 4028.S, Ertiga"
                     value={formData.model}
                     onChange={e => setFormData({ ...formData, model: e.target.value })}
-                    className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50"
+                    disabled={isEditModalOpen}
+                    className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 disabled:bg-slate-100 disabled:text-slate-500"
                   />
                 </div>
 
@@ -450,7 +457,8 @@ export const VehiclesView: React.FC = () => {
                     type="number"
                     value={formData.manufacturing_year}
                     onChange={e => setFormData({ ...formData, manufacturing_year: parseInt(e.target.value) || 2024 })}
-                    className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50"
+                    disabled={isEditModalOpen}
+                    className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 disabled:bg-slate-100 disabled:text-slate-500"
                   />
                 </div>
 
@@ -496,6 +504,17 @@ export const VehiclesView: React.FC = () => {
                 </div>
 
                 <div>
+                  <label className="block text-slate-600 font-semibold mb-1">Alternate Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. +91 98220 55555"
+                    value={formData.alternate_phone}
+                    onChange={e => setFormData({ ...formData, alternate_phone: e.target.value })}
+                    className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50"
+                  />
+                </div>
+
+                <div>
                   <label className="block text-slate-600 font-semibold mb-1">Emergency SOS Contact *</label>
                   <input
                     type="text"
@@ -521,7 +540,8 @@ export const VehiclesView: React.FC = () => {
                     placeholder="e.g. 864201045892110"
                     value={formData.device_imei}
                     onChange={e => setFormData({ ...formData, device_imei: e.target.value })}
-                    className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-mono"
+                    disabled={isEditModalOpen}
+                    className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-mono disabled:bg-slate-100 disabled:text-slate-500"
                   />
                 </div>
 

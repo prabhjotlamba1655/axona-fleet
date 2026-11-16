@@ -52,9 +52,12 @@ export function buildCanonical(fields) {
         mainPower: fields.mainPower === 0 ? 0 : 1,
         panic: fields.panic ? 1 : 0,
         tamper: fields.tamper ? 1 : 0,
-        movementStatus: speedKmh > 3 ? 'moving' : (fields.ignition ? 'idle' : 'stopped')
+        movementStatus: !fields.ignition && speedKmh > 2
+          ? 'towing'
+          : (speedKmh > 3 ? 'moving' : (fields.ignition ? 'idle' : 'stopped'))
       },
       alert: fields.alert ?? null,
+      behavior: fields.behavior ?? null,
       timing: {
         gpsTime: fields.gpsTime ?? null,
         receivedAt: new Date().toISOString()

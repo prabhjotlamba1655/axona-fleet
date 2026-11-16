@@ -14,7 +14,7 @@ import {
   Search,
   ExternalLink
 } from 'lucide-react';
-import { apiFetch } from '../services/api';
+import { apiFetch, telematicsWS } from '../services/api';
 import { VehicleLocation, DashboardStats } from '../types';
 import FleetMap from '../components/FleetMap';
 
@@ -42,6 +42,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTo, onSe
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
+  useEffect(() => {
+    const unsub = telematicsWS.subscribe((msg: any) => {
+      if (msg?.type !== 'FLEET_ALERT' || !msg.data) return;
+      fetchData();
+    });
+    return () => unsub();
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -51,9 +58,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTo, onSe
 
       const vehRes = await apiFetch<VehicleLocation[]>('/tracking/live');
       setVehicles(vehRes);
-      if (vehRes.length > 0 && !selectedVehicle) {
-        setSelectedVehicle(vehRes[0]);
-      }
+      setSelectedVehicle(current => {
+        if (current) {
+          return vehRes.find(veh => veh.vehicle_id === current.vehicle_id) || current;
+        }
+        const withFix = vehRes.filter(veh => Number.isFinite(veh.latitude) && Number.isFinite(veh.longitude));
+        return [...withFix].sort((a, b) => String(b.gps_time || '').localeCompare(String(a.gps_time || '')))[0] || vehRes[0] || null;
+      });
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     } finally {
@@ -86,6 +97,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTo, onSe
           <p className="text-xs text-slate-500">Real-time AIS-140 GPS telematics, emergency monitoring and vehicle health</p>
         </div>
         <div className="flex items-center space-x-2">
+          {typeof Notification !== 'undefined' && Notification.permission !== 'granted' && (
+            <button
+              onClick={() => Notification.requestPermission()}
+              className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 shadow-xs"
+            >
+              Enable desktop alerts
+            </button>
+          )}
           <button
             onClick={fetchData}
             className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 shadow-xs"
@@ -246,6 +265,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTo, onSe
                 </div>
                 <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
                   selectedVehicle.movement_status === 'moving' ? 'bg-emerald-100 text-emerald-800' :
+                  selectedVehicle.movement_status === 'towing' ? 'bg-violet-100 text-violet-800' :
                   selectedVehicle.movement_status === 'stopped' ? 'bg-rose-100 text-rose-800' :
                   selectedVehicle.movement_status === 'idle' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-800'
                 }`}>
@@ -327,7 +347,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTo, onSe
           {/* Recent Alerts Feed (Section 5.B Requirements) */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">Recent Alerts</h3>
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">Recent Alerts</h3>
+                <p className="text-[10px] text-slate-500 mt-0.5">User data since today 00:00 hrs</p>
+              </div>
               <button onClick={() => onNavigateTo('panic')} className="text-[11px] text-sky-600 font-semibold hover:underline">
                 View All
               </button>
@@ -335,12 +358,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTo, onSe
 
             <div className="space-y-2.5">
               {recentAlerts.length === 0 ? (
-                <div className="text-xs text-slate-400 py-4 text-center">No recent alerts recorded.</div>
+                <div className="text-xs text-slate-400 py-4 text-center">No alerts since today 00:00 hrs.</div>
               ) : (
                 recentAlerts.map(alert => {
                   const overspeed = alert.type === 'overspeed';
                   const geofence = alert.type === 'geofence';
-                  const destination = geofence ? 'geofences' : overspeed ? 'driver-intelligence' : 'panic';
+                  const towing = alert.type === 'towing';
+                  const destination = geofence ? 'geofences' : (overspeed || towing) ? 'dashboard' : 'panic';
                   return (
                   <button
                     key={alert.id}
@@ -352,15 +376,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTo, onSe
                       ? <MapPin className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
                       : overspeed
                         ? <Zap className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                        : <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />}
+                        : towing
+                          ? <Truck className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
+                          : <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-slate-900">{alert.registration_number}</span>
-                        <span className={`text-[10px] font-semibold px-1.5 py-0.2 rounded ${geofence ? 'text-sky-700 bg-sky-50' : overspeed ? 'text-amber-700 bg-amber-50' : 'text-rose-600 bg-rose-50'}`}>
-                          {geofence ? alert.status : overspeed ? 'Overspeed' : alert.status}
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.2 rounded ${geofence ? 'text-sky-700 bg-sky-50' : overspeed ? 'text-amber-700 bg-amber-50' : towing ? 'text-violet-700 bg-violet-50' : 'text-rose-600 bg-rose-50'}`}>
+                          {geofence ? alert.status : overspeed ? 'Overspeed' : towing ? 'Towing' : alert.status}
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-600 truncate">{alert.title}</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">{alert.event_time}</div>
+                      {(overspeed || towing) && (
+                        <div className="text-[10px] text-slate-600 mt-0.5">
+                          {alert.speed} km/h
+                          {alert.duration_min > 0 ? ` for ${alert.duration_min} min` : ''}
+                          {Number(alert.distance_km) > 0 ? ` · ${Number(alert.distance_km).toFixed(1)} km` : ''}
+                          {alert.severity ? ` · ${alert.severity}` : ''}
+                          {alert.is_open ? ' · ongoing' : ''}
+                        </div>
+                      )}
                       <div className="text-[10px] text-slate-400 mt-0.5">{alert.address}</div>
                     </div>
                   </button>
@@ -416,11 +452,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTo, onSe
                   <td className="py-3 px-4">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
                       veh.movement_status === 'moving' ? 'bg-emerald-100 text-emerald-800' :
+                      veh.movement_status === 'towing' ? 'bg-violet-100 text-violet-800' :
                       veh.movement_status === 'stopped' ? 'bg-rose-100 text-rose-800' :
                       veh.movement_status === 'idle' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
                         veh.movement_status === 'moving' ? 'bg-emerald-500' :
+                        veh.movement_status === 'towing' ? 'bg-violet-500' :
                         veh.movement_status === 'stopped' ? 'bg-rose-500' :
                         veh.movement_status === 'idle' ? 'bg-amber-500' : 'bg-slate-400'
                       }`}></span>
@@ -428,7 +466,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTo, onSe
                     </span>
                   </td>
                   <td className="py-3 px-4 font-semibold text-slate-800">
-                    {veh.speed} km/h
+                    <div>{veh.speed ?? 0} km/h</div>
+                    {Number(veh.speed_limit) > 0 && Number(veh.speed) > Number(veh.speed_limit) && (
+                      <div className={`text-[10px] font-bold ${Number(veh.speed) - Number(veh.speed_limit) >= 16 ? 'text-rose-600' : 'text-amber-700'}`}>
+                        +{Math.round(Number(veh.speed) - Number(veh.speed_limit))} km/h
+                      </div>
+                    )}
                   </td>
                   <td className="py-3 px-4">
                     <span className={`font-semibold ${veh.ignition ? 'text-emerald-600' : 'text-slate-500'}`}>
@@ -436,7 +479,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTo, onSe
                     </span>
                   </td>
                   <td className="py-3 px-4 text-slate-600 max-w-[220px] truncate" title={veh.address}>
-                    {veh.address || 'Pune Corridor'}
+                    {veh.address || 'Address pending'}
                   </td>
                   <td className="py-3 px-4 text-right">
                     <button

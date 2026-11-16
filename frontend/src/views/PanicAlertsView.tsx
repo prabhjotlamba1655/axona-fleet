@@ -284,6 +284,14 @@ export const PanicAlertsView: React.FC = () => {
 
                 {/* Emergency Contact */}
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  <span className="text-[10px] font-bold uppercase text-slate-400 block">Alternate Number</span>
+                  <div className="font-bold text-slate-900 mt-1">Second contact</div>
+                  <a href={`tel:${selectedAlert.alternate_phone || ''}`} className="text-sky-600 font-bold block mt-0.5">
+                    {selectedAlert.alternate_phone || 'Not set'}
+                  </a>
+                </div>
+
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
                   <span className="text-[10px] font-bold uppercase text-slate-400 block">Emergency SOS Contact</span>
                   <div className="font-bold text-rose-700 mt-1">Pre-configured SOS</div>
                   <a href={`tel:${selectedAlert.emergency_contact_phone}`} className="text-rose-600 font-bold block mt-0.5">

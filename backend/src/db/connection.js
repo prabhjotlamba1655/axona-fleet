@@ -40,6 +40,16 @@ export function openDatabase() {
     applyPragmas(handle);
     handle.exec(fs.readFileSync(schemaPath, 'utf8'));
     ensureColumn(handle, 'raw_packet_logs', 'canonical_json', 'TEXT');
+    ensureColumn(handle, 'vehicles', 'alternate_phone', 'TEXT');
+    ensureColumn(handle, 'speed_alerts', 'ended_at', 'TEXT');
+    ensureColumn(handle, 'speed_alerts', 'max_speed', 'REAL');
+    ensureColumn(handle, 'speed_alerts', 'is_open', 'INTEGER DEFAULT 0');
+    ensureColumn(handle, 'speed_alerts', 'distance_km', 'REAL DEFAULT 0');
+    ensureColumn(handle, 'speed_alerts', 'severity', 'TEXT');
+    ensureColumn(handle, 'speed_alerts', 'closing_since', 'TEXT');
+    ensureColumn(handle, 'speed_alerts', 'last_latitude', 'REAL');
+    ensureColumn(handle, 'speed_alerts', 'last_longitude', 'REAL');
+    ensureColumn(handle, 'speed_alerts', 'driver_event_id', 'TEXT');
   } catch (err) {
     if (handle) {
       try { handle.close(); } catch { /* ignore */ }

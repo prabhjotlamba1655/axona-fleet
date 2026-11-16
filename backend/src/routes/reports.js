@@ -1,5 +1,6 @@
 import express from 'express';
 import { authenticate } from '../middleware/auth.js';
+import { buildTablePdf } from '../core/simplePdf.js';
 import ReportsService, { validate90DaysRange } from '../services/reportsService.js';
 
 const router = express.Router();
@@ -96,8 +97,20 @@ router.get('/:reportType', (req, res) => {
   if (exportFormat === 'csv') {
     const csv = jsonToCSV(data);
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="axona_${reportType}_report_90d.csv"`);
+    res.setHeader('Content-Disposition', `attachment; filename="axona_${reportType}_report.csv"`);
     return res.send(csv);
+  }
+
+  if (exportFormat === 'pdf') {
+    const pdf = buildTablePdf({
+      title: `Axona ${reportType} report`,
+      subtitle: `${startDate || 'start'} to ${endDate || 'now'}`,
+      rows: data
+    });
+    const disposition = req.query.disposition === 'inline' ? 'inline' : 'attachment';
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `${disposition}; filename="axona_${reportType}_report.pdf"`);
+    return res.send(pdf);
   }
 
   res.json({

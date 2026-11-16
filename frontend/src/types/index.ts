@@ -25,7 +25,9 @@ export interface Vehicle {
   manufacturing_year?: number;
   owner_name: string;
   owner_phone: string;
+  alternate_phone?: string;
   emergency_contact_phone: string;
+  sim_number?: string;
   photo_url?: string;
   device_id?: string;
   device_imei?: string;
@@ -44,7 +46,7 @@ export interface Vehicle {
   speed?: number;
   heading?: number;
   ignition?: number;
-  movement_status?: 'moving' | 'stopped' | 'idle' | 'offline';
+  movement_status?: 'moving' | 'stopped' | 'idle' | 'offline' | 'towing';
   address?: string;
   gps_time?: string;
   panic_status?: number;
@@ -70,7 +72,7 @@ export interface VehicleLocation {
   speed: number;
   heading: number;
   ignition: number;
-  movement_status: 'moving' | 'stopped' | 'idle' | 'offline';
+  movement_status: 'moving' | 'stopped' | 'idle' | 'offline' | 'towing';
   main_power: number;
   panic_status: number;
   address?: string;
@@ -85,6 +87,7 @@ export interface PanicEvent {
   category_name?: string;
   owner_name: string;
   owner_phone: string;
+  alternate_phone?: string;
   emergency_contact_phone: string;
   device_imei: string;
   latitude: number;

@@ -62,14 +62,14 @@ export class GeofenceService {
         }
       }
 
-      // Check last event for this fence & vehicle
-      const lastEvent = db.get(`
-        SELECT event_type, event_time FROM geofence_events
-        WHERE geofence_id = ? AND vehicle_id = ?
-        ORDER BY event_time DESC LIMIT 1
+      // Entry and exit are the only events that say which side of the fence the vehicle was on.
+      const lastCrossing = db.get(`
+        SELECT event_type FROM geofence_events
+        WHERE geofence_id = ? AND vehicle_id = ? AND event_type IN ('entry', 'exit')
+        ORDER BY event_time DESC, rowid DESC LIMIT 1
       `, [fence.id, vehicleId]);
 
-      const wasInside = lastEvent ? lastEvent.event_type === 'entry' : false;
+      const wasInside = lastCrossing ? lastCrossing.event_type === 'entry' : false;
 
       if (isInside && !wasInside && fence.alert_on_entry) {
         // Entry Event
@@ -111,6 +111,40 @@ export class GeofenceService {
         ]);
 
         eventsGenerated.push({ type: 'exit', geofenceName: fence.name, vehicle: fence.registration_number });
+      }
+
+      const zoneLimit = Number(fence.speed_limit);
+      if (isInside && zoneLimit > 0 && Number(speed) > zoneLimit) {
+        const alreadySpeeding = db.get(`
+          SELECT id FROM geofence_events
+          WHERE geofence_id = ? AND vehicle_id = ? AND event_type = 'overspeed'
+            AND event_time >= COALESCE((
+              SELECT MAX(event_time) FROM geofence_events
+              WHERE geofence_id = ? AND vehicle_id = ? AND event_type = 'entry'
+            ), '1970-01-01')
+          LIMIT 1
+        `, [fence.id, vehicleId, fence.id, vehicleId]);
+
+        if (!alreadySpeeding) {
+          const eventId = `geo_evt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+          db.run(`
+            INSERT INTO geofence_events (id, geofence_id, vehicle_id, event_type, latitude, longitude, speed)
+            VALUES (?, ?, ?, 'overspeed', ?, ?, ?)
+          `, [eventId, fence.id, vehicleId, currentLat, currentLng, speed]);
+
+          db.run(`
+            INSERT INTO notifications (id, tenant_id, vehicle_id, title, message, notification_type)
+            VALUES (?, ?, ?, ?, ?, 'geofence')
+          `, [
+            `notif_gs_${Date.now()}`,
+            fence.tenant_id,
+            vehicleId,
+            `Geofence speed: ${fence.name}`,
+            `Vehicle ${fence.registration_number} is at ${speed} km/h inside ${fence.name}. Zone limit is ${zoneLimit} km/h.`
+          ]);
+
+          eventsGenerated.push({ type: 'overspeed', geofenceName: fence.name, vehicle: fence.registration_number });
+        }
       }
     }
 

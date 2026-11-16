@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS vehicles (
     manufacturing_year INTEGER,
     owner_name TEXT NOT NULL,
     owner_phone TEXT NOT NULL,
+    alternate_phone TEXT,
     emergency_contact_phone TEXT NOT NULL,
     photo_url TEXT,
     device_id TEXT UNIQUE,
@@ -274,8 +275,54 @@ CREATE TABLE IF NOT EXISTS speed_alerts (
     longitude REAL NOT NULL,
     address TEXT,
     event_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ended_at TIMESTAMP,
+    max_speed REAL,
+    is_open INTEGER DEFAULT 0,
+    distance_km REAL DEFAULT 0,
+    severity TEXT,
+    closing_since TEXT,
+    last_latitude REAL,
+    last_longitude REAL,
+    driver_event_id TEXT,
     FOREIGN KEY (tenant_id) REFERENCES tenants(id),
     FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
+);
+
+-- 17.1 Towing: ignition off while speed is above 2 km/h
+CREATE TABLE IF NOT EXISTS towing_alerts (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    vehicle_id TEXT NOT NULL,
+    speed REAL NOT NULL,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    address TEXT,
+    event_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ended_at TIMESTAMP,
+    max_speed REAL,
+    is_open INTEGER DEFAULT 1,
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+    FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
+);
+
+-- 17.2 Speed samples above the limit, before the 5-second hold confirms an incident
+CREATE TABLE IF NOT EXISTS speed_arming (
+    vehicle_id TEXT PRIMARY KEY,
+    started_at TEXT NOT NULL,
+    latitude REAL,
+    longitude REAL
+);
+
+-- 17.3 Outbound alert channels. SMS uses sms.axona.in once the password and DLT template are set.
+CREATE TABLE IF NOT EXISTS alert_dispatches (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT,
+    vehicle_id TEXT,
+    channel TEXT NOT NULL,
+    recipient TEXT,
+    body TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 17A. Driver Intelligence & Behavior Events (AIS-140 / tnavIC Protocol Compliant)

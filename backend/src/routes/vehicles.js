@@ -12,7 +12,7 @@ router.get('/', (req, res) => {
 
   let sql = `
     SELECT v.*, c.name as category_name, c.code as category_code,
-           d.imei as device_imei, d.model as device_model, d.status as device_status,
+           d.imei as device_imei, d.model as device_model, d.sim_number, d.status as device_status,
            d.is_ais140_compliant, d.main_power_connected, d.backup_battery_pct,
            m.name as manufacturer_name,
            loc.latitude, loc.longitude, loc.speed, loc.heading, loc.ignition,
@@ -226,8 +226,10 @@ router.put('/:id', authorize(['super_admin', 'company_admin', 'individual_owner'
     manufacturing_year,
     owner_name,
     owner_phone,
+    alternate_phone,
     emergency_contact_phone,
     speed_limit,
+    sim_number,
     is_active
   } = req.body;
 
@@ -242,31 +244,27 @@ router.put('/:id', authorize(['super_admin', 'company_admin', 'individual_owner'
 
   db.run(`
     UPDATE vehicles
-    SET registration_number = COALESCE(?, registration_number),
-        category_id = COALESCE(?, category_id),
-        make = COALESCE(?, make),
-        model = COALESCE(?, model),
-        manufacturing_year = COALESCE(?, manufacturing_year),
-        owner_name = COALESCE(?, owner_name),
+    SET owner_name = COALESCE(?, owner_name),
         owner_phone = COALESCE(?, owner_phone),
+        alternate_phone = COALESCE(?, alternate_phone),
         emergency_contact_phone = COALESCE(?, emergency_contact_phone),
         speed_limit = COALESCE(?, speed_limit),
         is_active = COALESCE(?, is_active),
         updated_at = datetime('now')
     WHERE id = ?
   `, [
-    registration_number ? registration_number.toUpperCase().trim() : null,
-    category_id ?? null,
-    make ?? null,
-    model ?? null,
-    manufacturing_year ?? null,
     owner_name ?? null,
     owner_phone ?? null,
+    alternate_phone ?? null,
     emergency_contact_phone ?? null,
     speed_limit ?? null,
     is_active === undefined || is_active === null ? null : (is_active ? 1 : 0),
     id
   ]);
+
+  if (vehicle.device_id && sim_number) {
+    db.run('UPDATE gps_devices SET sim_number = ? WHERE id = ?', [sim_number, vehicle.device_id]);
+  }
 
   res.json({ message: 'Vehicle details updated successfully' });
 });

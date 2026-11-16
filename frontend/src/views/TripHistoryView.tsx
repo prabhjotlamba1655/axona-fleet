@@ -16,7 +16,7 @@ import {
   Flag,
   AlertCircle
 } from 'lucide-react';
-import { apiFetch } from '../services/api';
+import { apiFetch, downloadFile } from '../services/api';
 import { Trip, Vehicle } from '../types';
 import FleetMap from '../components/FleetMap';
 
@@ -38,9 +38,9 @@ export const TripHistoryView: React.FC = () => {
     // Load vehicles
     apiFetch<Vehicle[]>('/vehicles').then(v => {
       setVehicles(v);
-      if (v.length > 0) {
-        setSelectedVehicleId(v[0].id);
-      }
+      const withFix = [...v].sort((a, b) => String(b.gps_time || '').localeCompare(String(a.gps_time || '')));
+      const current = withFix.find(item => item.gps_time) || withFix[0];
+      if (current) setSelectedVehicleId(current.id);
     });
 
     // Default to last 30 days
@@ -150,14 +150,19 @@ export const TripHistoryView: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-2">
-          <a
-            href={`/api/reports/trips?exportFormat=csv&vehicleId=${selectedVehicleId || ''}&startDate=${startDate}&endDate=${endDate}`}
-            download
+          <button
+            type="button"
+            onClick={() => {
+              const query = `vehicleId=${encodeURIComponent(selectedVehicleId || '')}&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
+              downloadFile(`/reports/trips?exportFormat=csv&${query}`, 'axona_trip_history.csv').catch((err) => {
+                alert(err.message);
+              });
+            }}
             className="px-3.5 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 shadow-xs flex items-center space-x-1.5"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
             <span>Export Trip History (CSV)</span>
-          </a>
+          </button>
         </div>
       </div>
 
@@ -373,7 +378,7 @@ export const TripHistoryView: React.FC = () => {
                 <MapPin className="w-3.5 h-3.5 text-sky-600 shrink-0" />
                 <span>
                   <strong>Current Location:</strong> {currentPoint?.address || 'Corridor waypoint'}
-                  {currentPoint?.is_stop ? ` (🛑 Stoppage: ${currentPoint.stop_duration_min || 5} min)` : ''}
+                  {currentPoint?.is_stop ? ` (🛑 Stoppage: ${currentPoint.stop_duration_min ? `${currentPoint.stop_duration_min} min` : '—'})` : ''}
                 </span>
               </div>
             </div>
@@ -399,7 +404,7 @@ export const TripHistoryView: React.FC = () => {
                   <div>
                     <span className="font-bold text-slate-800">Origin Departure:</span>
                     <p className="text-slate-600">{selectedTrip.start_address}</p>
-                    <span className="text-[10px] text-slate-400 font-mono">{selectedTrip.start_time}</span>
+                    <span className="text-[10px] text-slate-400 font-mono">{selectedTrip.start_time || 'Time unavailable'}</span>
                   </div>
                 </div>
 
@@ -408,7 +413,7 @@ export const TripHistoryView: React.FC = () => {
                   <div>
                     <span className="font-bold text-slate-800">Destination Arrival:</span>
                     <p className="text-slate-600">{selectedTrip.end_address || 'In Transit'}</p>
-                    <span className="text-[10px] text-slate-400 font-mono">{selectedTrip.end_time || 'Active'}</span>
+                    <span className="text-[10px] text-slate-400 font-mono">{selectedTrip.end_time || 'Still moving'}</span>
                   </div>
                 </div>
               </div>
@@ -477,7 +482,7 @@ export const TripHistoryView: React.FC = () => {
                         </div>
                         <div className="text-right shrink-0">
                           <span className="px-1.5 py-0.5 rounded bg-rose-200/90 text-rose-900 font-bold text-[10px]">
-                            {st.stop_duration_min || 8} min
+                            {st.stop_duration_min ? `${st.stop_duration_min} min` : '—'}
                           </span>
                         </div>
                       </div>

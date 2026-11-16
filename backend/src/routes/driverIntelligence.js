@@ -2,6 +2,8 @@ import express from 'express';
 import db from '../db/database.js';
 import { authenticate } from '../middleware/auth.js';
 import AIS140Parser from '../services/ais140Parser.js';
+import { fleetSafetyScore, rankLeaderboard, safetyScore } from '../core/driverScore.js';
+import { validateImuConfig } from '../core/imuBounds.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -41,8 +43,32 @@ router.get('/summary', (req, res) => {
     const os = stats.overspeeding || 0;
     const total = stats.total_events || 0;
 
-    // Safety score penalty calculation
-    const fleetSafetyScore = Math.max(25, Math.min(100, Math.round(100 - (hb * 1.5 + ha * 1.2 + rd * 2.0 + tilt * 5.0 + os * 1.5) / Math.max(1, (total / 10)))));
+    const vehicleScores = db.query(`
+      SELECT
+        SUM(CASE WHEN e.event_type = 'HARSH_BRAKING' THEN 1 ELSE 0 END) as harsh_braking,
+        SUM(CASE WHEN e.event_type = 'HARSH_ACCEL' THEN 1 ELSE 0 END) as harsh_accel,
+        SUM(CASE WHEN e.event_type = 'VEHICLE_TILT' THEN 1 ELSE 0 END) as vehicle_tilt,
+        SUM(CASE WHEN e.event_type = 'RASH_DRIVING' THEN 1 ELSE 0 END) as rash_driving,
+        SUM(CASE WHEN e.event_type = 'OVERSPEEDING' THEN 1 ELSE 0 END) as overspeeding,
+        SUM(CASE
+          WHEN e.event_type = 'OVERSPEEDING' AND e.severity = 'CRITICAL' THEN 5
+          WHEN e.event_type = 'OVERSPEEDING' AND e.severity = 'HIGH' THEN 3
+          WHEN e.event_type = 'OVERSPEEDING' THEN 2
+          ELSE 0
+        END) as overspeed_penalty
+      FROM vehicles v
+      LEFT JOIN driver_intelligence_events e ON e.vehicle_id = v.id
+      ${filterSql}
+      GROUP BY v.id
+    `, params);
+    const fleetScore = fleetSafetyScore(vehicleScores.map(row => safetyScore({
+      harshBraking: row.harsh_braking || 0,
+      harshAccel: row.harsh_accel || 0,
+      vehicleTilt: row.vehicle_tilt || 0,
+      rashDriving: row.rash_driving || 0,
+      overspeeding: row.overspeeding || 0,
+      overspeedPenalty: row.overspeed_penalty || 0
+    })));
 
     res.json({
       success: true,
@@ -56,8 +82,8 @@ router.get('/summary', (req, res) => {
         criticalCount: stats.critical_count || 0,
         last24hCount: stats.last_24h_count || 0,
         last7dCount: stats.last_7d_count || 0,
-        fleetSafetyScore: isNaN(fleetSafetyScore) ? 88 : fleetSafetyScore,
-        protocol: 'tnavIC AIS-140 / ARAI Standard'
+        fleetSafetyScore: fleetScore,
+        protocol: 'Same score for every connected tracker'
       }
     });
   } catch (err) {
@@ -128,10 +154,27 @@ router.get('/events', (req, res) => {
     sql += ' ORDER BY e.event_time DESC LIMIT ?';
     params.push(Math.min(parseInt(limit) || 100, 10000));
 
-    const events = db.query(sql, params).map(e => ({
-      ...e,
-      osmLink: `https://www.openstreetmap.org/?mlat=${e.latitude}&mlon=${e.longitude}#map=16/${e.latitude}/${e.longitude}`
-    }));
+    const events = db.query(sql, params).map(e => {
+      const latitude = Number(e.latitude);
+      const longitude = Number(e.longitude);
+      const hasFix = Number.isFinite(latitude) && Number.isFinite(longitude);
+      return {
+        ...e,
+        event_type: e.event_type || 'UNKNOWN',
+        packet_type: e.packet_type || '',
+        alert_id: e.alert_id ?? 0,
+        severity: e.severity || 'WARNING',
+        metric_value: e.metric_value || '—',
+        threshold_value: e.threshold_value || '—',
+        speed: e.speed ?? 0,
+        heading: e.heading ?? 0,
+        driver_name: e.driver_name || 'Assigned Driver',
+        address: e.address || (hasFix ? `Lat ${latitude.toFixed(4)}, Lon ${longitude.toFixed(4)}` : 'Location unavailable'),
+        osmLink: hasFix
+          ? `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=16/${latitude}/${longitude}`
+          : null
+      };
+    });
 
     res.json(events);
   } catch (err) {
@@ -165,6 +208,12 @@ router.get('/leaderboard', (req, res) => {
         SUM(CASE WHEN e.event_type = 'VEHICLE_TILT' THEN 1 ELSE 0 END) as vehicle_tilt_count,
         SUM(CASE WHEN e.event_type = 'RASH_DRIVING' THEN 1 ELSE 0 END) as rash_driving_count,
         SUM(CASE WHEN e.event_type = 'OVERSPEEDING' THEN 1 ELSE 0 END) as overspeeding_count,
+        SUM(CASE
+          WHEN e.event_type = 'OVERSPEEDING' AND e.severity = 'CRITICAL' THEN 5
+          WHEN e.event_type = 'OVERSPEEDING' AND e.severity = 'HIGH' THEN 3
+          WHEN e.event_type = 'OVERSPEEDING' THEN 2
+          ELSE 0
+        END) as overspeed_penalty,
         MAX(e.event_time) as last_incident_time
       FROM vehicles v
       LEFT JOIN vehicle_categories c ON v.category_id = c.id
@@ -174,41 +223,7 @@ router.get('/leaderboard', (req, res) => {
       ORDER BY total_violations ASC
     `, params);
 
-    const leaderboard = rows.map((r, idx) => {
-      const hb = r.harsh_braking_count || 0;
-      const ha = r.harsh_accel_count || 0;
-      const tilt = r.vehicle_tilt_count || 0;
-      const rd = r.rash_driving_count || 0;
-      const os = r.overspeeding_count || 0;
-
-      // Penalties: tilt (-10), rash turn (-4), harsh brake (-3), harsh accel (-2), overspeed (-2)
-      const penalty = (hb * 3) + (ha * 2) + (tilt * 10) + (rd * 4) + (os * 2);
-      const score = Math.max(20, Math.min(100, 100 - penalty));
-
-      let riskTier = 'Safe';
-      if (score < 70 || tilt > 0) riskTier = 'High Risk';
-      else if (score < 85) riskTier = 'Moderate Risk';
-
-      return {
-        rank: idx + 1,
-        vehicleId: r.vehicle_id,
-        registrationNumber: r.registration_number,
-        vehicleName: `${r.make} ${r.model}`,
-        category: r.category_name,
-        driverName: r.owner_name || 'Assigned Driver',
-        totalViolations: r.total_violations || 0,
-        harshBraking: hb,
-        harshAccel: ha,
-        vehicleTilt: tilt,
-        rashDriving: rd,
-        overspeeding: os,
-        safetyScore: score,
-        riskTier,
-        lastIncident: r.last_incident_time || 'None'
-      };
-    });
-
-    res.json(leaderboard);
+    res.json(rankLeaderboard(rows));
   } catch (err) {
     console.error('Error fetching leaderboard:', err);
     res.status(500).json({ error: 'Failed to fetch leaderboard' });
@@ -221,19 +236,17 @@ router.get('/leaderboard', (req, res) => {
 router.get('/device-config/:deviceId', (req, res) => {
   try {
     const { deviceId } = req.params;
-    let config = db.get('SELECT * FROM device_imu_configs WHERE device_id = ?', [deviceId]);
-    if (!config) {
-      config = {
-        device_id: deviceId,
-        harsh_brake_threshold: 0.55,
-        harsh_accel_threshold: 0.43,
-        tilt_angle_threshold: 45.0,
-        rash_turning_speed: 30.0,
-        harsh_turning_g: 0.47,
-        motion_threshold: 0.05,
-        speed_limit: 70.0
-      };
-    }
+    const stored = db.get('SELECT * FROM device_imu_configs WHERE device_id = ?', [deviceId]) || {};
+    const config = {
+      device_id: deviceId,
+      harsh_brake_threshold: stored.harsh_brake_threshold ?? 0.55,
+      harsh_accel_threshold: stored.harsh_accel_threshold ?? 0.43,
+      tilt_angle_threshold: stored.tilt_angle_threshold ?? 45.0,
+      rash_turning_speed: stored.rash_turning_speed ?? 30.0,
+      harsh_turning_g: stored.harsh_turning_g ?? 0.47,
+      motion_threshold: stored.motion_threshold ?? 0.05,
+      speed_limit: stored.speed_limit ?? 70.0
+    };
 
     const commandString = `SET HBT:${config.harsh_brake_threshold},HAT:${config.harsh_accel_threshold},TA:${config.tilt_angle_threshold},RTT:${config.rash_turning_speed},SL:${config.speed_limit}`;
     const imuCommand = `IMU=THR,${config.motion_threshold},TA,${config.tilt_angle_threshold},HTA,${config.harsh_turning_g}`;
@@ -263,29 +276,35 @@ router.get('/device-config/:deviceId', (req, res) => {
  */
 router.put('/device-config/:deviceId', (req, res) => {
   try {
+    if (!['super_admin', 'company_admin'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Only a company administrator can change sensor limits' });
+    }
     const { deviceId } = req.params;
-    const {
-      harshBrake = 0.55,
-      harshAccel = 0.43,
-      tiltAngle = 45.0,
-      rashTurning = 30.0,
-      speedLimit = 70.0
-    } = req.body;
+    const device = db.get('SELECT id, tenant_id FROM gps_devices WHERE id = ?', [deviceId]);
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    if (req.user.role !== 'super_admin' && device.tenant_id !== req.user.tenant_id) {
+      return res.status(403).json({ error: 'Device is outside this company' });
+    }
+    const checked = validateImuConfig(req.body);
+    if (!checked.ok) return res.status(400).json({ error: checked.errors.join(' ') });
+    const { harshBrake, harshAccel, tiltAngle, rashTurning, harshTurning, speedLimit } = checked.value;
 
     db.run(`
       INSERT INTO device_imu_configs 
-      (device_id, harsh_brake_threshold, harsh_accel_threshold, tilt_angle_threshold, rash_turning_speed, speed_limit, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+      (device_id, harsh_brake_threshold, harsh_accel_threshold, tilt_angle_threshold, rash_turning_speed, harsh_turning_g, speed_limit, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
       ON CONFLICT(device_id) DO UPDATE SET
         harsh_brake_threshold = excluded.harsh_brake_threshold,
         harsh_accel_threshold = excluded.harsh_accel_threshold,
         tilt_angle_threshold = excluded.tilt_angle_threshold,
         rash_turning_speed = excluded.rash_turning_speed,
+        harsh_turning_g = excluded.harsh_turning_g,
         speed_limit = excluded.speed_limit,
         updated_at = excluded.updated_at
-    `, [deviceId, harshBrake, harshAccel, tiltAngle, rashTurning, speedLimit]);
+    `, [deviceId, harshBrake, harshAccel, tiltAngle, rashTurning, harshTurning, speedLimit]);
+    db.run('UPDATE vehicles SET speed_limit = ? WHERE device_id = ?', [speedLimit, deviceId]);
 
-    const otaCommand = `SET HBT:${harshBrake},HAT:${harshAccel},TA:${tiltAngle},RTT:${rashTurning},SL:${speedLimit}`;
+    const otaCommand = `SET HBT:${harshBrake},HAT:${harshAccel},TA:${tiltAngle},RTT:${rashTurning},HTA:${harshTurning},SL:${speedLimit}`;
 
     res.json({
       success: true,
@@ -303,6 +322,9 @@ router.put('/device-config/:deviceId', (req, res) => {
  * 6. Simulate Driver Event on Demand (For Testing / Live Demo)
  */
 router.post('/simulate', async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(404).json({ error: 'Not found' });
+  }
   try {
     const { vehicleId = 'veh_1', eventType = 'HARSH_BRAKING' } = req.body;
     const vehicle = db.get(`

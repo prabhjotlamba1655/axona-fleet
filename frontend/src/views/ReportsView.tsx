@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   FileSpreadsheet,
   Download,
-  Printer,
+  ExternalLink,
   Calendar,
   Filter,
   Truck,
@@ -14,10 +14,9 @@ import {
   RefreshCw,
   Clock,
   AlertCircle,
-  ExternalLink,
   BrainCircuit
 } from 'lucide-react';
-import { apiFetch } from '../services/api';
+import { apiFetch, downloadFile, openFile } from '../services/api';
 import { Vehicle } from '../types';
 
 export const ReportsView: React.FC = () => {
@@ -98,8 +97,30 @@ export const ReportsView: React.FC = () => {
     setErrorMessage(null);
   };
 
-  const handlePrint = () => {
-    window.print();
+  const reportQuery = () => {
+    const params = new URLSearchParams();
+    if (selectedVehicleId) params.append('vehicleId', selectedVehicleId);
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    return params.toString();
+  };
+
+  const exportReport = async (kind: 'open-pdf' | 'pdf' | 'csv') => {
+    if (isOver90Days) {
+      setErrorMessage(`Selected range (${daysSelected} days) exceeds maximum allowed interval of 90 days.`);
+      return;
+    }
+    setErrorMessage(null);
+    try {
+      if (kind === 'open-pdf') {
+        await openFile(`/reports/${activeReport}?exportFormat=pdf&disposition=inline&${reportQuery()}`);
+        return;
+      }
+      const extension = kind === 'pdf' ? 'pdf' : 'csv';
+      await downloadFile(`/reports/${activeReport}?exportFormat=${extension}&${reportQuery()}`, `axona_${activeReport}_report.${extension}`);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to export report');
+    }
   };
 
   return (
@@ -112,31 +133,39 @@ export const ReportsView: React.FC = () => {
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">Enterprise Compliance & Operational Fleet Reports</h1>
           </div>
           <p className="text-xs text-slate-500">
-            Generate and export AIS-140 compliance reports up to <strong>90 days</strong> in accordance with data retention standards
+            The table below is the report open in the browser. Open PDF shows the same report in a new tab. Download PDF or CSV saves the file.
           </p>
         </div>
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={handlePrint}
-            className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 shadow-xs flex items-center space-x-1.5"
+            onClick={() => exportReport('open-pdf')}
+            disabled={isOver90Days}
+            className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 shadow-xs flex items-center space-x-1.5 disabled:opacity-50"
           >
-            <Printer className="w-3.5 h-3.5 text-slate-500" />
-            <span>Print / Save PDF</span>
+            <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+            <span>Open PDF</span>
           </button>
-
-          <a
-            href={`/api/reports/${activeReport}?exportFormat=csv&vehicleId=${selectedVehicleId || ''}&startDate=${startDate}&endDate=${endDate}`}
-            download
+          <button
+            onClick={() => exportReport('pdf')}
+            disabled={isOver90Days}
+            className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 shadow-xs flex items-center space-x-1.5 disabled:opacity-50"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <span>Download PDF</span>
+          </button>
+          <button
+            onClick={() => exportReport('csv')}
+            disabled={isOver90Days}
             className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg shadow-xs flex items-center space-x-1.5 ${
               isOver90Days
-                ? 'bg-slate-300 text-slate-500 cursor-not-allowed pointer-events-none'
+                ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                 : 'bg-sky-600 hover:bg-sky-700 text-white'
             }`}
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Export CSV</span>
-          </a>
+            <span>Download CSV</span>
+          </button>
         </div>
       </div>
 

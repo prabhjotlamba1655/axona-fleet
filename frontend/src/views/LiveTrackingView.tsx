@@ -43,10 +43,12 @@ export const LiveTrackingView: React.FC = () => {
     try {
       const data = await apiFetch<VehicleLocation[]>('/tracking/live');
       setVehicles(data);
-      if (data.length > 0 && !selectedVehicleIdRef.current) {
-        setSelectedVehicleId(data[0].vehicle_id);
+      const withFix = data.filter(veh => Number.isFinite(veh.latitude) && Number.isFinite(veh.longitude));
+      const newest = [...withFix].sort((a, b) => String(b.gps_time || '').localeCompare(String(a.gps_time || '')))[0];
+      if (!selectedVehicleIdRef.current && newest) {
+        setSelectedVehicleId(newest.vehicle_id);
       }
-      const selected = data.find(v => v.vehicle_id === (selectedVehicleIdRef.current || data[0]?.vehicle_id));
+      const selected = data.find(v => v.vehicle_id === (selectedVehicleIdRef.current || newest?.vehicle_id));
       if (selected) rememberTrailPoint(selected);
     } catch (err) {
       console.error('Error fetching live positions:', err);
@@ -110,6 +112,7 @@ export const LiveTrackingView: React.FC = () => {
           <div className="flex items-center space-x-1.5 text-xs font-bold text-slate-800">
             <Radio className="w-4 h-4 text-sky-600 animate-pulse" />
             <span>AIS-140 Real-Time Telematics Map</span>
+            <span className="text-[10px] font-semibold text-sky-700 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5">User data since today 00:00 hrs</span>
           </div>
 
           <div className="h-4 w-px bg-slate-200"></div>
@@ -132,6 +135,7 @@ export const LiveTrackingView: React.FC = () => {
               className="rounded text-sky-600 focus:ring-0"
             />
             <span className="font-medium">Show GPS Trail</span>
+            <span className="text-[10px] text-slate-400">since today 00:00 hrs</span>
           </label>
         </div>
 
@@ -198,6 +202,8 @@ export const LiveTrackingView: React.FC = () => {
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                       veh.movement_status === 'moving'
                         ? 'bg-emerald-100 text-emerald-800'
+                        : veh.movement_status === 'towing'
+                        ? 'bg-violet-100 text-violet-800'
                         : veh.movement_status === 'stopped'
                         ? 'bg-rose-100 text-rose-800'
                         : veh.movement_status === 'idle'
@@ -311,7 +317,7 @@ export const LiveTrackingView: React.FC = () => {
               {/* Location Address */}
               <div className="mt-3 text-[11px] text-slate-600 flex items-center space-x-1.5">
                 <MapPin className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                <span><strong>Address:</strong> {selectedVehicle.address || 'Near Pune Highway corridor'}</span>
+                <span><strong>Address:</strong> {selectedVehicle.address || 'Address pending'}</span>
               </div>
             </div>
           )}

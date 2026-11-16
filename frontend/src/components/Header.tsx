@@ -86,8 +86,7 @@ export const Header: React.FC<HeaderProps> = ({
           {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-rose-600" />}
         </button>
 
-        {/* Role Switcher (For demo and evaluator testing) */}
-        <div className="relative">
+        {import.meta.env.DEV && <div className="relative">
           <button
             onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
             className="flex items-center space-x-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs text-slate-700 transition"
@@ -125,7 +124,7 @@ export const Header: React.FC<HeaderProps> = ({
               ))}
             </div>
           )}
-        </div>
+        </div>}
 
         {/* User Info & Avatar */}
         <div className="flex items-center space-x-2 pl-2 border-l border-slate-200">

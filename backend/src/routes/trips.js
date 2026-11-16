@@ -1,6 +1,8 @@
 import express from 'express';
 import db from '../db/database.js';
 import { authenticate } from '../middleware/auth.js';
+import { markStoppages } from '../core/stoppages.js';
+import { sessionById, sessionsFromHistory } from '../core/tripSessions.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -147,13 +149,75 @@ router.get('/', (req, res) => {
 
   sql += ' ORDER BY t.start_time DESC';
 
-  const trips = db.query(sql, params);
+  const stored = db.query(sql, params);
+  if (!vehicleId) {
+    res.json(stored);
+    return;
+  }
+
+  const history = db.query(`
+    SELECT vehicle_id, latitude, longitude, speed, heading, ignition, address, gps_time
+    FROM gps_location_history
+    WHERE vehicle_id = ?
+    ORDER BY gps_time ASC
+  `, [vehicleId]);
+  const recorded = sessionsFromHistory(history);
+  if (!recorded.length) {
+    res.json(stored);
+    return;
+  }
+
+  const vehicle = stored[0] || db.get(`
+    SELECT v.registration_number, v.make, v.model, c.name as category_name
+    FROM vehicles v
+    LEFT JOIN vehicle_categories c ON v.category_id = c.id
+    WHERE v.id = ?
+  `, [vehicleId]);
+  const trips = recorded
+    .filter((session) => {
+      if (sDate && String(session.start_time) < sDate) return false;
+      if (eDate && String(session.start_time) > eDate) return false;
+      return true;
+    })
+    .map((session) => {
+      const { points, ...summary } = session;
+      return {
+        ...summary,
+        registration_number: vehicle?.registration_number,
+        make: vehicle?.make,
+        model: vehicle?.model,
+        category_name: vehicle?.category_name
+      };
+    })
+    .reverse();
   res.json(trips);
 });
 
 // GET /api/trips/:id/playback - GPS points along the trip for animated route playback
 router.get('/:id/playback', (req, res) => {
   const { id } = req.params;
+  if (id.startsWith('track~')) {
+    const vehicleId = id.split('~')[1];
+    const history = db.query(`
+      SELECT vehicle_id, latitude, longitude, speed, heading, ignition, address, gps_time
+      FROM gps_location_history
+      WHERE vehicle_id = ?
+      ORDER BY gps_time ASC
+    `, [vehicleId]);
+    const session = sessionById(history, id);
+    if (!session) return res.status(404).json({ error: 'Trip not found' });
+    const vehicle = db.get(`
+      SELECT v.registration_number, v.make, v.model, c.name as category_name
+      FROM vehicles v
+      LEFT JOIN vehicle_categories c ON v.category_id = c.id
+      WHERE v.id = ?
+    `, [vehicleId]);
+    return res.json({
+      trip: { ...session, points: undefined, ...vehicle },
+      waypointCount: session.points.length,
+      waypoints: markStoppages(session.points)
+    });
+  }
   const trip = db.get('SELECT * FROM trips WHERE id = ?', [id]);
   if (!trip) {
     return res.status(404).json({ error: 'Trip not found' });
@@ -168,19 +232,21 @@ router.get('/:id/playback', (req, res) => {
       SELECT latitude, longitude, speed, heading, ignition, address, gps_time
       FROM gps_location_history
       WHERE vehicle_id = ?
+        AND (? IS NULL OR gps_time >= ?)
+        AND (? IS NULL OR gps_time <= ?)
       ORDER BY gps_time ASC
-    `, [trip.vehicle_id]);
+    `, [trip.vehicle_id, trip.start_time, trip.start_time, trip.end_time, trip.end_time]);
 
-    if (history.length >= 8) {
-      waypoints = history.map((h, i) => ({
+    if (history.length >= 2) {
+      waypoints = markStoppages(history.map((h, i) => ({
         latitude: h.latitude,
         longitude: h.longitude,
         speed: h.speed,
         heading: h.heading,
         ignition: h.ignition,
         address: h.address || `Waypoint #${i + 1}`,
-        is_stop: h.speed === 0 ? 1 : 0
-      }));
+        gps_time: h.gps_time
+      })));
     } else {
       // Interpolate smooth path between start and end with exact stoppage points
       const nPoints = 18;

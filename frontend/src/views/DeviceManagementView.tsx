@@ -138,6 +138,7 @@ export const DeviceManagementView: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-2">
+          {import.meta.env.DEV && (
           <button
             onClick={() => setIsTestPacketOpen(!isTestPacketOpen)}
             className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 shadow-xs flex items-center space-x-1.5"
@@ -145,6 +146,7 @@ export const DeviceManagementView: React.FC = () => {
             <Terminal className="w-3.5 h-3.5 text-slate-500" />
             <span>AIS-140 Packet Tester</span>
           </button>
+          )}
 
           <button
             onClick={() => setIsRegisterModalOpen(true)}

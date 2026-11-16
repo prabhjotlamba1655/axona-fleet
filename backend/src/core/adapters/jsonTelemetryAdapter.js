@@ -1,4 +1,5 @@
 import { buildCanonical } from '../canonicalTelemetry.js';
+import { behaviorFromGeneric } from '../driverBehavior.js';
 
 function asObject(ctx) {
   if (ctx.raw && typeof ctx.raw === 'object') return ctx.raw;
@@ -39,17 +40,14 @@ export const jsonTelemetryAdapter = {
     const payload = asObject(ctx);
     if (!payload) return { ok: false, error: 'JSON telemetry payload is not an object' };
 
-    const alert = payload.alert && payload.alert.eventType
-      ? payload.alert
-      : null;
-
+    const speedKmh = numberOr(payload.speedKmh ?? payload.speed, 0);
     return buildCanonical({
       protocol: this.id,
       imei: payload.imei || ctx.imei,
       latitude: payload.latitude ?? payload.lat,
       longitude: payload.longitude ?? payload.lng ?? payload.lon,
       altitudeMeters: numberOr(payload.altitude ?? payload.alt, 0),
-      speedKmh: numberOr(payload.speedKmh ?? payload.speed, 0),
+      speedKmh,
       headingDegrees: numberOr(payload.heading ?? payload.course ?? payload.angle, 0),
       satellites: numberOr(payload.satellites ?? payload.sats, 0),
       fixQuality: payload.fixQuality ?? null,
@@ -58,7 +56,7 @@ export const jsonTelemetryAdapter = {
       panic: payload.panic || payload.emergency ? 1 : 0,
       tamper: payload.tamper ? 1 : 0,
       gpsTime: payload.gpsTime || payload.timestamp || null,
-      alert
+      behavior: behaviorFromGeneric(payload, speedKmh)
     });
   }
 };

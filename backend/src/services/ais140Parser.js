@@ -4,7 +4,20 @@
  * Compliant with MoRTH / AIS-140 specifications for Intelligent Transportation Systems.
  */
 
-export class AIS140Parser {
+export function aisStamp(date, time) {
+  if (!date || !time || String(date).length < 8 || String(time).length < 6) return null;
+  const textDate = String(date);
+  const textTime = String(time);
+  const day = textDate.slice(0, 2);
+  const month = textDate.slice(2, 4);
+  const year = textDate.slice(4, 8);
+  const hours = textTime.slice(0, 2);
+  const minutes = textTime.slice(2, 4);
+  const seconds = textTime.slice(4, 6);
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}Z`;
+}
+
+class AIS140Parser {
   /**
    * Parse standard AIS-140 ASCII / NMEA-style data packet:
    * Format: $PVT,IMEI,DATE,TIME,LAT,LAT_DIR,LON,LON_DIR,SPEED,HEADING,SATS,ALT,IGN,MAIN_PWR,EMERGENCY,TAMPER*CHECKSUM
@@ -45,6 +58,7 @@ export class AIS140Parser {
     let satellites = 12;
     let altitude = 0;
     let driverAlert = null;
+    let gpsTime = null;
 
     // A. Standard tnavIC AIS-140 Alert Information Packet ($ALT)
     // Table 4: $ALT,VendorID,SoftwareVer,PacketType,AlertID,Status,IMEI,RegNo,GPSFix,Date,Time,Lat,LatDir,Lon,LonDir,Speed,Heading,Sats,Alt...
@@ -66,6 +80,7 @@ export class AIS140Parser {
         const lngDir = parts[14] || 'E';
         lng = lngDir.toUpperCase() === 'W' ? -rawLng : rawLng;
 
+        gpsTime = aisStamp(parts[9], parts[10]);
         speed = parseFloat(parts[15]) || 0.0;
         heading = parts.length > 16 ? (parseFloat(parts[16]) || 0.0) : 0.0;
         satellites = parts.length > 17 ? (parseInt(parts[17]) || 12) : 12;
@@ -147,6 +162,7 @@ export class AIS140Parser {
       const lngDir = parts[7] || 'E';
       lng = lngDir.toUpperCase() === 'W' ? -rawLng : rawLng;
 
+      gpsTime = aisStamp(parts[2], parts[3]);
       speed = parseFloat(parts[8]) || 0.0;
       heading = parseFloat(parts[9]) || 0.0;
       satellites = parseInt(parts[10]) || 12;
@@ -182,6 +198,7 @@ export class AIS140Parser {
       emergency,
       tamper,
       driverAlert,
+      gpsTime,
       rawString
     };
   }

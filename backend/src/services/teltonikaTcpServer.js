@@ -103,7 +103,7 @@ function acceptRecords(imei, records, remote) {
       angle: record.angle,
       satellites: record.satellites,
       timestamp: record.timestamp,
-      io: { ignition: record.ignition }
+      io: record.io || { ignition: record.ignition }
     }, { transport: 'TCP', ipAddress: remote });
 
     if (result.status === 'UNREGISTERED_DEVICE') {

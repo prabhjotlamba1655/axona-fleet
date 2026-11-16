@@ -36,7 +36,7 @@ export const ais140Adapter = {
       mainPower: result.mainPower,
       panic: result.emergency,
       tamper: result.tamper,
-      gpsTime: null,
+      gpsTime: result.gpsTime,
       alert: result.driverAlert
         ? {
           eventType: result.driverAlert.eventType,

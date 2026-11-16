@@ -1,5 +1,17 @@
 import { buildCanonical } from '../canonicalTelemetry.js';
+import { behaviorFromTeltonikaIo, classifyDriverBehavior } from '../driverBehavior.js';
 import { takeAvlPacket } from './teltonikaCodec8.js';
+
+function ioValue(io, id) {
+  if (io[id] != null) return Number(io[id]);
+  if (io[String(id)] != null) return Number(io[String(id)]);
+  return null;
+}
+
+/** Teltonika green driving: AVL 253 type, AVL 254 magnitude in 0.01 g. */
+export function greenDrivingAlert(io = {}) {
+  return classifyDriverBehavior(behaviorFromTeltonikaIo(io));
+}
 
 function asObject(ctx) {
   if (ctx.raw && typeof ctx.raw === 'object' && !Array.isArray(ctx.raw)) return ctx.raw;
@@ -44,22 +56,24 @@ export const teltonikaAdapter = {
     }
 
     const io = payload.io || {};
+    const ignition = io.ignition ?? ioValue(io, 239) ?? payload.ignition;
+    const speedKmh = payload.speed ?? payload.speedKmh ?? 0;
     return buildCanonical({
       protocol: this.id,
       imei: payload.imei || ctx.imei,
       latitude: payload.latitude ?? payload.lat,
       longitude: payload.longitude ?? payload.lng ?? payload.lon,
       altitudeMeters: payload.altitude ?? payload.alt ?? 0,
-      speedKmh: payload.speed ?? payload.speedKmh ?? 0,
+      speedKmh,
       headingDegrees: payload.angle ?? payload.heading ?? 0,
       satellites: payload.satellites ?? payload.sat ?? 0,
       fixQuality: payload.fixQuality ?? null,
-      ignition: (io.ignition ?? payload.ignition) ? 1 : 0,
+      ignition: ignition ? 1 : 0,
       mainPower: payload.mainPower === 0 ? 0 : 1,
       panic: payload.panic ? 1 : 0,
       tamper: payload.tamper ? 1 : 0,
       gpsTime: payload.timestamp || payload.gpsTime || null,
-      alert: null
+      behavior: behaviorFromTeltonikaIo(io, speedKmh)
     });
   },
 

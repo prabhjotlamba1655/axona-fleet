@@ -28,13 +28,13 @@ export const GeofencingView: React.FC = () => {
     name: '',
     description: '',
     fence_type: 'circle' as 'circle' | 'polygon',
-    center_lat: 18.5912,
-    center_lng: 73.7389,
+    center_lat: 0,
+    center_lng: 0,
     radius_meters: 1500,
     coordinates_json: '',
     alert_on_entry: true,
     alert_on_exit: true,
-    speed_limit: 30,
+    speed_limit: '' as number | '',
     vehicle_ids: [] as string[]
   });
 
@@ -49,10 +49,6 @@ export const GeofencingView: React.FC = () => {
 
       const live = await apiFetch<VehicleLocation[]>('/tracking/live');
       setLiveVehicles(live);
-      const located = live.find(v => v.latitude && v.longitude);
-      if (located) {
-        setMapFocus(current => current || [located.latitude, located.longitude]);
-      }
 
       const evData = await apiFetch<any[]>('/geofences/events');
       setEvents(evData);
@@ -71,29 +67,46 @@ export const GeofencingView: React.FC = () => {
 
   const livePosition = (vehicleId: string) => liveVehicles.find(v => v.vehicle_id === vehicleId && v.latitude && v.longitude);
 
+  const applyVehicleFix = (vehicleId: string) => {
+    const live = livePosition(vehicleId);
+    setNewFence(prev => ({
+      ...prev,
+      vehicle_ids: vehicleId ? [vehicleId] : [],
+      center_lat: live ? Number(live.latitude.toFixed(5)) : prev.center_lat,
+      center_lng: live ? Number(live.longitude.toFixed(5)) : prev.center_lng
+    }));
+    if (live) setMapFocus([live.latitude, live.longitude]);
+    return live;
+  };
+
   const openCreate = () => {
-    const located = liveVehicles.find(v => v.latitude && v.longitude);
-    const centerLat = located ? Number(located.latitude.toFixed(5)) : 18.5912;
-    const centerLng = located ? Number(located.longitude.toFixed(5)) : 73.7389;
-    if (located) setMapFocus([located.latitude, located.longitude]);
+    const located = [...liveVehicles]
+      .filter(v => v.latitude && v.longitude)
+      .sort((a, b) => String(b.gps_time || '').localeCompare(String(a.gps_time || '')))[0];
+    const vehicleId = located?.vehicle_id || vehicles[0]?.id || '';
     setNewFence({
       name: '',
       description: '',
       fence_type: 'circle',
-      center_lat: centerLat,
-      center_lng: centerLng,
+      center_lat: located ? Number(located.latitude.toFixed(5)) : 0,
+      center_lng: located ? Number(located.longitude.toFixed(5)) : 0,
       radius_meters: 1500,
       coordinates_json: '',
       alert_on_entry: true,
       alert_on_exit: true,
-      speed_limit: 30,
-      vehicle_ids: located ? [located.vehicle_id] : vehicles.map(v => v.id)
+      speed_limit: '',
+      vehicle_ids: vehicleId ? [vehicleId] : []
     });
+    if (located) setMapFocus([located.latitude, located.longitude]);
     setIsCreateModalOpen(true);
   };
 
   const handleCreateGeofence = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (newFence.fence_type === 'circle' && (!newFence.center_lat || !newFence.center_lng)) {
+      alert('Choose a vehicle with a current fix, or click the map, before saving.');
+      return;
+    }
     try {
       await apiFetch('/geofences', {
         method: 'POST',
@@ -114,24 +127,6 @@ export const GeofencingView: React.FC = () => {
     } catch (err: any) {
       alert(`Delete failed: ${err.message}`);
     }
-  };
-
-  const toggleVehicleAssignment = (vId: string) => {
-    setNewFence(prev => {
-      const exists = prev.vehicle_ids.includes(vId);
-      const vehicle_ids = exists ? prev.vehicle_ids.filter(id => id !== vId) : [...prev.vehicle_ids, vId];
-      const live = livePosition(vId);
-      if (!exists && live) {
-        setMapFocus([live.latitude, live.longitude]);
-        return {
-          ...prev,
-          vehicle_ids,
-          center_lat: Number(live.latitude.toFixed(5)),
-          center_lng: Number(live.longitude.toFixed(5))
-        };
-      }
-      return { ...prev, vehicle_ids };
-    });
   };
 
   return (
@@ -276,7 +271,7 @@ export const GeofencingView: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Pune City Distribution Hub"
+                  placeholder="e.g. Yard gate"
                   value={newFence.name}
                   onChange={e => setNewFence({ ...newFence, name: e.target.value })}
                   className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50"
@@ -340,24 +335,35 @@ export const GeofencingView: React.FC = () => {
                   />
                 </div>
               </div>
-              <p className="text-[11px] text-slate-400">Taken from the selected vehicle. Click the map to move the center.</p>
+              <p className="text-[11px] text-slate-400">Filled from the selected vehicle’s current parked fix. Click the map to move the center.</p>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Zone speed limit (km/h, optional)</label>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Leave empty for entry and exit only"
+                  value={newFence.speed_limit}
+                  onChange={e => setNewFence({ ...newFence, speed_limit: e.target.value === '' ? '' : parseInt(e.target.value, 10) })}
+                  className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50"
+                />
+              </div>
 
               <div className="pt-2">
-                <label className="block text-slate-700 font-bold mb-1">Assign Fleet Vehicles</label>
-                <div className="max-h-32 overflow-y-auto border border-slate-200 rounded-lg p-2 space-y-1.5 bg-slate-50">
+                <label className="block text-slate-700 font-bold mb-1">Vehicle</label>
+                <select
+                  value={newFence.vehicle_ids[0] || ''}
+                  onChange={e => applyVehicleFix(e.target.value)}
+                  className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium"
+                >
+                  <option value="">Select a vehicle</option>
                   {vehicles.map(v => (
-                    <label key={v.id} className="flex items-center space-x-2 cursor-pointer text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={newFence.vehicle_ids.includes(v.id)}
-                        onChange={() => toggleVehicleAssignment(v.id)}
-                        className="rounded text-sky-600 focus:ring-0"
-                      />
-                      <span className="font-bold">{v.registration_number}</span>
-                      <span className="text-[11px] text-slate-400">({v.make} {v.model})</span>
-                    </label>
+                    <option key={v.id} value={v.id}>{v.registration_number} ({v.make} {v.model})</option>
                   ))}
-                </div>
+                </select>
+                {newFence.vehicle_ids[0] && !livePosition(newFence.vehicle_ids[0]) && (
+                  <p className="text-[11px] text-amber-700 mt-1">This vehicle has no parked fix yet, so the center was not moved.</p>
+                )}
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex justify-end space-x-2">

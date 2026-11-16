@@ -11,7 +11,7 @@ router.get('/', (req, res) => {
   const { status } = req.query;
 
   let sql = `
-    SELECT p.*, v.registration_number, v.owner_name, v.owner_phone, v.emergency_contact_phone,
+    SELECT p.*, v.registration_number, v.owner_name, v.owner_phone, v.alternate_phone, v.emergency_contact_phone,
            c.name as category_name, d.imei as device_imei,
            u1.name as acknowledged_by_name,
            u2.name as resolved_by_name
